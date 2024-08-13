@@ -196,7 +196,7 @@ namespace DisplayAScene
 
             // Check if there is already a GraphicsOverlay to add the Graphic to, if not, create a new one.
             
-            TAGraphicsOverlay = new Esri.ArcGISRuntime.UI.GraphicsOverlay();
+            TAGraphicsOverlay = new TAGraphicsOverlay();
             if (GraphicsOverlays.Count == 0)
             {
                 
