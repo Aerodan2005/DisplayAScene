@@ -103,10 +103,10 @@ namespace DisplayAScene
             }
 
             LoadTrajectoryData();
-            AddTrajectoryToScene();
+            await AddTrajectoryToScene();
 
             // Show the layer in the scene.
-            this.Scene.OperationalLayers.Add(TAGraphicsOverlay);
+            //this.Scene.OperationalLayers.Add(TAGraphicsOverlay);
 
         }
 
@@ -160,23 +160,6 @@ namespace DisplayAScene
                 }
 
 
-                //// Create a graphics overlay for the trajectory
-                //GraphicsOverlay trajectoryOverlay = new GraphicsOverlay();
-
-                //// Create a symbol for the trajectory line
-                //SimpleLineSymbol lineSymbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.Red, 2);
-
-                //// Create a graphic for the trajectory line
-                //Graphic trajectoryGraphic = new Graphic(polyline, lineSymbol);
-
-                //// Add the graphic to the overlay
-                //trajectoryOverlay.Graphics.Add(trajectoryGraphic);
-
-               // MapPoint sceneCenterPoint = new MapPoint(32.1853, 33.93,5000, SpatialReferences.Wgs84);
-                // Add the overlay to the scene view
-                // Assuming you have a SceneView instance named MySceneView
-                //           this.add (trajectoryOverlay);
-
                 Console.WriteLine("Trajectory added successfully.");
             }
             catch (Exception ex)
@@ -184,7 +167,7 @@ namespace DisplayAScene
                 Console.WriteLine("Failed to load the trajectory: " + ex.Message);
             }
         }
-        public Esri.ArcGISRuntime.UI.GraphicsOverlay TAGraphicsOverlay;
+        //public Esri.ArcGISRuntime.UI.GraphicsOverlay TAGraphicsOverlay;
         // Modified CreateGraphics to accept a Graphic parameter
         private void CreateGraphics(Graphic polylineGraphic)
         {
@@ -195,18 +178,18 @@ namespace DisplayAScene
             }
 
             // Check if there is already a GraphicsOverlay to add the Graphic to, if not, create a new one.
-            
-            TAGraphicsOverlay = new TAGraphicsOverlay();
+
+            Esri.ArcGISRuntime.UI.GraphicsOverlay TAGraphicsOverlay = new Esri.ArcGISRuntime.UI.GraphicsOverlay();
+
             if (GraphicsOverlays.Count == 0)
             {
-                
+                TAGraphicsOverlay = new GraphicsOverlay();
                 GraphicsOverlays.Add(TAGraphicsOverlay);
             }
             else
             {
                 // Assuming you want to add the new graphic to the first overlay in the collection
-                //   TAGraphicsOverlay = GraphicsOverlays.First();
-                GraphicsOverlays.Add(TAGraphicsOverlay);
+             //   TAGraphicsOverlay = GraphicsOverlays.First();
             }
 
             // Add the polylineGraphic to the selected or new GraphicsOverlay
