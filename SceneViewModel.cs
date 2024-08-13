@@ -19,6 +19,7 @@ using Esri.ArcGISRuntime.Geometry;
 using Esri.ArcGISRuntime.Mapping;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace DisplayAScene
 {
@@ -29,6 +30,7 @@ namespace DisplayAScene
         public SceneViewModel()
         {
             SetupScene();
+            OnPropertyChanged();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -48,48 +50,81 @@ namespace DisplayAScene
             }
         }
 
-        private void SetupScene()
+        private async Task SetupScene()
         {
-
             // Create a new scene with an imagery basemap.
             Scene scene = new Scene(BasemapStyle.ArcGISImageryStandard);
 
-            // Create an elevation source to show relief in the scene.
-            string elevationServiceUrl = "http://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer";
-            ArcGISTiledElevationSource elevationSource = new ArcGISTiledElevationSource(new Uri(elevationServiceUrl));
-            
-            // Create a Surface with the elevation data.
-            Surface elevationSurface = new Surface();            
-            elevationSurface.ElevationSources.Add(elevationSource);
+            // Create a file path to the scene package or scene layer package.
+            string scenePath = @"C:\Users\urika\OneDrive\מסמכים\ArcGIS\Projects\Med2\Med2.mspk";
 
-            // Add an exaggeration factor to increase the 3D effect of the elevation.
-            elevationSurface.ElevationExaggeration = 2.5;
+            try
+            {
+                // Load the mobile scene package.
+                MobileScenePackage mobileScenePackage = await MobileScenePackage.OpenAsync(scenePath);
 
-            // Apply the surface to the scene.
-            scene.BaseSurface = elevationSurface;
+                // Check if the package contains any scenes.
+                if (mobileScenePackage.Scenes.Count > 0)
+                {
+                    // Use the first scene in the package.
+                    scene = mobileScenePackage.Scenes[0];
 
-            // Create a point that defines the observer's (camera) initial location in the scene.
-            // The point defines a longitude, latitude, and altitude of the initial camera location.
-            MapPoint cameraLocation = new MapPoint(-118.804, 33.909, 5330.0, SpatialReferences.Wgs84);
+                    // Set the view model "Scene" property.
+                    this.Scene = scene;
 
-            // Create a Camera using the point, the direction the camera should face (heading), and its pitch and roll (rotation and tilt).
-            Camera sceneCamera = new Camera(locationPoint: cameraLocation, 
-                                  heading: 355.0, 
-                                  pitch: 72.0, 
-                                  roll: 0.0);
-
-            // Create the initial point to center the camera on (the Santa Monica mountains in Southern California).
-            // Longitude=118.805 degrees West, Latitude=34.027 degrees North
-            MapPoint sceneCenterPoint = new MapPoint(-118.805, 34.027, SpatialReferences.Wgs84);
-
-            // Set an initial viewpoint for the scene using the camera and observation point.
-            Viewpoint initialViewpoint = new Viewpoint(sceneCenterPoint, sceneCamera);
-            scene.InitialViewpoint = initialViewpoint;
-
-            // Set the view model "Scene" property.
-            this.Scene = scene;
-
+                    Console.WriteLine("Scene setup completed successfully.");
+                }
+                else
+                {
+                    Console.WriteLine("No scenes found in the mobile scene package.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Handle any exceptions that occur during scene loading.
+                Console.WriteLine("Failed to load the scene: " + ex.Message);
+            }
         }
+
+        //// Create a new scene with an imagery basemap.
+        //Scene scene = new Scene(BasemapStyle.ArcGISImageryStandard);
+
+        //    //// Create an elevation source to show relief in the scene.
+        //    //string elevationServiceUrl = "http://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer";
+        //    //ArcGISTiledElevationSource elevationSource = new ArcGISTiledElevationSource(new Uri(elevationServiceUrl));
+        //    //
+        //    //// Create a Surface with the elevation data.
+        //    //Surface elevationSurface = new Surface();            
+        //    //elevationSurface.ElevationSources.Add(elevationSource);
+
+        //    //// Add an exaggeration factor to increase the 3D effect of the elevation.
+        //    ////elevationSurface.ElevationExaggeration = 2.5;
+
+        //    //// Apply the surface to the scene.
+        //    //scene.BaseSurface = elevationSurface;
+
+        //    // Create a point that defines the observer's (camera) initial location in the scene.
+        //    // The point defines a longitude, latitude, and altitude of the initial camera location.
+        //    MapPoint cameraLocation = new MapPoint(32.0853, 33.909, 0.0, SpatialReferences.Wgs84);
+
+        //    // Create a Camera using the point, the direction the camera should face (heading), and its pitch and roll (rotation and tilt).
+        //    Camera sceneCamera = new Camera(locationPoint: cameraLocation, 
+        //                          heading: 30.0, 
+        //                          pitch: 72.0, 
+        //                          roll: 0.0);
+
+        //    //// Create the initial point to center the camera on (the Santa Monica mountains in Southern California).
+        //    //// Longitude=118.805 degrees West, Latitude=34.027 degrees North
+        //    //MapPoint sceneCenterPoint = new MapPoint(32.1853, 33.93, SpatialReferences.Wgs84);
+
+        //    //// Set an initial viewpoint for the scene using the camera and observation point.
+        //    //Viewpoint initialViewpoint = new Viewpoint(sceneCenterPoint, sceneCamera);
+        //    //scene.InitialViewpoint = initialViewpoint;
+
+        //    // Set the view model "Scene" property.
+        //    this.Scene = scene;
+
+        
 
     }
 

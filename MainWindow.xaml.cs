@@ -37,6 +37,8 @@ namespace DisplayAScene
         public MainWindow()
         {
             InitializeComponent();
+            DataContext = new SceneViewModel();
+
         }
     }
 }
