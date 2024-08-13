@@ -20,17 +20,21 @@ using Esri.ArcGISRuntime.Mapping;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using Esri.ArcGISRuntime.UI;
+using Esri.ArcGISRuntime.Symbology;
+using Esri.ArcGISRuntime.UI.Controls;
 
 namespace DisplayAScene
 {
 
-    class SceneViewModel : INotifyPropertyChanged
+    public partial class SceneViewModel : INotifyPropertyChanged
     {
+
 
         public SceneViewModel()
         {
             SetupScene();
-            OnPropertyChanged();
+            //OnPropertyChanged();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -46,6 +50,19 @@ namespace DisplayAScene
             set
             {
                 _scene = value;
+                OnPropertyChanged();
+            }
+        }
+        private GraphicsOverlayCollection? _graphicsOverlays;
+        public GraphicsOverlayCollection? GraphicsOverlays
+        {
+            get
+            {
+                return _graphicsOverlays;
+            }
+            set
+            {
+                _graphicsOverlays = value;
                 OnPropertyChanged();
             }
         }
@@ -84,48 +101,141 @@ namespace DisplayAScene
                 // Handle any exceptions that occur during scene loading.
                 Console.WriteLine("Failed to load the scene: " + ex.Message);
             }
+
+            LoadTrajectoryData();
+            AddTrajectoryToScene();
+
+            // Show the layer in the scene.
+            this.Scene.OperationalLayers.Add(TAGraphicsOverlay);
+
         }
 
-        //// Create a new scene with an imagery basemap.
-        //Scene scene = new Scene(BasemapStyle.ArcGISImageryStandard);
+        public List<TrajectoryPoint> Trajectory { get; set; }
 
-        //    //// Create an elevation source to show relief in the scene.
-        //    //string elevationServiceUrl = "http://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer";
-        //    //ArcGISTiledElevationSource elevationSource = new ArcGISTiledElevationSource(new Uri(elevationServiceUrl));
-        //    //
-        //    //// Create a Surface with the elevation data.
-        //    //Surface elevationSurface = new Surface();            
-        //    //elevationSurface.ElevationSources.Add(elevationSource);
+        private void LoadTrajectoryData()
+        {
+            Trajectory = new List<TrajectoryPoint>
+            {
+                new TrajectoryPoint(35.6962, 51.4229, 0),
+                new TrajectoryPoint(35.5000, 50.0000, 20000),
+                new TrajectoryPoint(35.2000, 45.0000, 40000),
+                new TrajectoryPoint(34.8000, 40.0000, 60000),
+                new TrajectoryPoint(34.4000, 35.0000, 80000),
+                new TrajectoryPoint(34.0000, 30.0000, 60000),
+                new TrajectoryPoint(33.6000, 25.0000, 40000),
+                new TrajectoryPoint(33.2000, 20.0000, 20000),
+                new TrajectoryPoint(33.8886, 35.4955, 0)
+            };
+        }
+        private async Task AddTrajectoryToScene()
+        {
+            // Check if the scene is null
+            if (this.Scene == null)
+            {
+                Console.WriteLine("Scene is null. Cannot add trajectory.");
+                return;
+            }
 
-        //    //// Add an exaggeration factor to increase the 3D effect of the elevation.
-        //    ////elevationSurface.ElevationExaggeration = 2.5;
+            try
+            {
+                // Load the trajectory data
+                PolylineBuilder polylineBuilder = new PolylineBuilder(SpatialReferences.Wgs84);
 
-        //    //// Apply the surface to the scene.
-        //    //scene.BaseSurface = elevationSurface;
+                foreach (var point in Trajectory)
+                {
+                    polylineBuilder.AddPoint(point.Longitude, point.Latitude, point.Altitude);
+                }
 
-        //    // Create a point that defines the observer's (camera) initial location in the scene.
-        //    // The point defines a longitude, latitude, and altitude of the initial camera location.
-        //    MapPoint cameraLocation = new MapPoint(32.0853, 33.909, 0.0, SpatialReferences.Wgs84);
+                Polyline polyline = polylineBuilder.ToGeometry();
 
-        //    // Create a Camera using the point, the direction the camera should face (heading), and its pitch and roll (rotation and tilt).
-        //    Camera sceneCamera = new Camera(locationPoint: cameraLocation, 
-        //                          heading: 30.0, 
-        //                          pitch: 72.0, 
-        //                          roll: 0.0);
+                if (polylineBuilder.Parts.Count > 0 )
+                {
+                    // Create a polyline from the builder
 
-        //    //// Create the initial point to center the camera on (the Santa Monica mountains in Southern California).
-        //    //// Longitude=118.805 degrees West, Latitude=34.027 degrees North
-        //    //MapPoint sceneCenterPoint = new MapPoint(32.1853, 33.93, SpatialReferences.Wgs84);
+                    var polylineGraphic = new Graphic(polyline);
+                    polylineGraphic.IsVisible = true;
+                    polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.Red, 20);
+                    polylineGraphic.ZIndex = 10;
+                    CreateGraphics(polylineGraphic);
+                }
 
-        //    //// Set an initial viewpoint for the scene using the camera and observation point.
-        //    //Viewpoint initialViewpoint = new Viewpoint(sceneCenterPoint, sceneCamera);
-        //    //scene.InitialViewpoint = initialViewpoint;
 
-        //    // Set the view model "Scene" property.
-        //    this.Scene = scene;
+                //// Create a graphics overlay for the trajectory
+                //GraphicsOverlay trajectoryOverlay = new GraphicsOverlay();
 
-        
+                //// Create a symbol for the trajectory line
+                //SimpleLineSymbol lineSymbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.Red, 2);
 
+                //// Create a graphic for the trajectory line
+                //Graphic trajectoryGraphic = new Graphic(polyline, lineSymbol);
+
+                //// Add the graphic to the overlay
+                //trajectoryOverlay.Graphics.Add(trajectoryGraphic);
+
+               // MapPoint sceneCenterPoint = new MapPoint(32.1853, 33.93,5000, SpatialReferences.Wgs84);
+                // Add the overlay to the scene view
+                // Assuming you have a SceneView instance named MySceneView
+                //           this.add (trajectoryOverlay);
+
+                Console.WriteLine("Trajectory added successfully.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to load the trajectory: " + ex.Message);
+            }
+        }
+        public Esri.ArcGISRuntime.UI.GraphicsOverlay TAGraphicsOverlay;
+        // Modified CreateGraphics to accept a Graphic parameter
+        private void CreateGraphics(Graphic polylineGraphic)
+        {
+            // Check if the GraphicsOverlays collection is initialized, if not, initialize it.
+            if (GraphicsOverlays == null)
+            {
+                GraphicsOverlays = new GraphicsOverlayCollection();
+            }
+
+            // Check if there is already a GraphicsOverlay to add the Graphic to, if not, create a new one.
+            
+            TAGraphicsOverlay = new Esri.ArcGISRuntime.UI.GraphicsOverlay();
+            if (GraphicsOverlays.Count == 0)
+            {
+                
+                GraphicsOverlays.Add(TAGraphicsOverlay);
+            }
+            else
+            {
+                // Assuming you want to add the new graphic to the first overlay in the collection
+                //   TAGraphicsOverlay = GraphicsOverlays.First();
+                GraphicsOverlays.Add(TAGraphicsOverlay);
+            }
+
+            // Add the polylineGraphic to the selected or new GraphicsOverlay
+            if (polylineGraphic != null)
+            {
+                TAGraphicsOverlay.Graphics.Add(polylineGraphic);
+                TAGraphicsOverlay.IsVisible = true;
+                OnPropertyChanged();
+            }
+    
+        }
+            //// Set the view model "Scene" property.
+        //this.Scene = scene;
+
+
+
+    }
+    public class TrajectoryPoint
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public double Altitude { get; set; }
+
+        public TrajectoryPoint(double latitude, double longitude, double altitude)
+        {
+            Latitude = latitude;
+            Longitude = longitude;
+            Altitude = altitude;
+        }
     }
 
 }
