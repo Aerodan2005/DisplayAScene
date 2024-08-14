@@ -15,7 +15,9 @@
 
     <Grid>
         <esri:SceneView x:Name="MainSceneView"
-                        Scene="{Binding Scene, Source={StaticResource SceneViewModel}}" />
+                        Scene="{Binding Scene}"
+                        GraphicsOverlays="{Binding GraphicsOverlays}" 
+                        />
 
         <Button Content="Show Traj" HorizontalAlignment="Left" Margin="10" VerticalAlignment="Top" Click="ShowTraj_Click" />
     </Grid>

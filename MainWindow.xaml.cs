@@ -43,9 +43,9 @@ namespace DisplayAScene
 
         private async void ShowTraj_Click(object sender, RoutedEventArgs e)
         {
-            SceneViewModel sceneViewModel = (SceneViewModel)DataContext;
+            SceneViewModel sceneViewModel = DataContext as SceneViewModel;
             sceneViewModel.LoadTrajectoryData();
-            sceneViewModel.AddTrajectoryToScene();
+             sceneViewModel.AddTrajectoryToScene();
         }
     }
 }
