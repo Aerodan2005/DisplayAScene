@@ -40,6 +40,13 @@ namespace DisplayAScene
             DataContext = new SceneViewModel();
 
         }
+
+        private async void ShowTraj_Click(object sender, RoutedEventArgs e)
+        {
+            SceneViewModel sceneViewModel = (SceneViewModel)DataContext;
+            sceneViewModel.LoadTrajectoryData();
+            sceneViewModel.AddTrajectoryToScene();
+        }
     }
 }
 

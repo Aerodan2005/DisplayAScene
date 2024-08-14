@@ -102,8 +102,7 @@ namespace DisplayAScene
                 Console.WriteLine("Failed to load the scene: " + ex.Message);
             }
 
-            LoadTrajectoryData();
-            await AddTrajectoryToScene();
+
 
             // Show the layer in the scene.
             //this.Scene.OperationalLayers.Add(TAGraphicsOverlay);
@@ -112,7 +111,7 @@ namespace DisplayAScene
 
         public List<TrajectoryPoint> Trajectory { get; set; }
 
-        private void LoadTrajectoryData()
+        public void LoadTrajectoryData()
         {
             Trajectory = new List<TrajectoryPoint>
             {
@@ -127,7 +126,7 @@ namespace DisplayAScene
                 new TrajectoryPoint(33.8886, 35.4955, 0)
             };
         }
-        private async Task AddTrajectoryToScene()
+        public async Task AddTrajectoryToScene()
         {
             // Check if the scene is null
             if (this.Scene == null)
@@ -155,7 +154,7 @@ namespace DisplayAScene
                     var polylineGraphic = new Graphic(polyline);
                     polylineGraphic.IsVisible = true;
                     polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.Red, 20);
-                    polylineGraphic.ZIndex = 10;
+                    //polylineGraphic.ZIndex = 10;
                     CreateGraphics(polylineGraphic);
                 }
 
@@ -179,7 +178,7 @@ namespace DisplayAScene
 
             // Check if there is already a GraphicsOverlay to add the Graphic to, if not, create a new one.
 
-            Esri.ArcGISRuntime.UI.GraphicsOverlay TAGraphicsOverlay = new Esri.ArcGISRuntime.UI.GraphicsOverlay();
+            GraphicsOverlay TAGraphicsOverlay = new GraphicsOverlay();
 
             if (GraphicsOverlays.Count == 0)
             {
