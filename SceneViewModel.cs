@@ -11,18 +11,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 using Esri.ArcGISRuntime.Geometry;
 using Esri.ArcGISRuntime.Mapping;
+
+using Esri.ArcGISRuntime.Symbology;
+using Esri.ArcGISRuntime.UI;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using Esri.ArcGISRuntime.UI;
-using Esri.ArcGISRuntime.Symbology;
-using Esri.ArcGISRuntime.UI.Controls;
 
 namespace DisplayAScene
 {
@@ -115,17 +114,31 @@ namespace DisplayAScene
         {
             Trajectory = new List<TrajectoryPoint>
             {
-                new TrajectoryPoint(35.6962, 51.4229, 0),
-                new TrajectoryPoint(35.5000, 50.0000, 20000),
-                new TrajectoryPoint(35.2000, 45.0000, 40000),
-                new TrajectoryPoint(34.8000, 40.0000, 60000),
-                new TrajectoryPoint(34.4000, 35.0000, 80000),
-                new TrajectoryPoint(34.0000, 30.0000, 60000),
-                new TrajectoryPoint(33.6000, 25.0000, 40000),
-                new TrajectoryPoint(33.2000, 20.0000, 20000),
-                new TrajectoryPoint(33.8886, 35.4955, 0)
+
+
+                new TrajectoryPoint(35.6962,51.4229,0),
+new TrajectoryPoint(35.5962,50.6116,8888.89   ),
+new TrajectoryPoint(35.4962,49.8003,17777.78  ),
+new TrajectoryPoint(35.3962,48.9890,26666.67  ),
+new TrajectoryPoint(35.2962,48.1777,35555.56  ),
+new TrajectoryPoint(35.1962,47.3664,44444.44  ),
+new TrajectoryPoint(35.0962,46.5551,53333.33  ),
+new TrajectoryPoint(34.9962,45.7438,62222.22  ),
+new TrajectoryPoint(34.8962,44.9325,71111.11  ),
+new TrajectoryPoint(34.7962,44.1212,80000     ),
+new TrajectoryPoint(34.6962,43.3099,71111.11  ),
+new TrajectoryPoint(34.5962,42.4986,62222.22  ),
+new TrajectoryPoint(34.4962,41.6873,53333.33  ),
+new TrajectoryPoint(34.3962,40.8760,44444.44  ),
+new TrajectoryPoint(34.2962,40.0647,35555.56  ),
+new TrajectoryPoint(34.1962,39.2534,26666.67  ),
+new TrajectoryPoint(34.0962,38.4421,17777.78  ),
+new TrajectoryPoint(33.9962,37.6308,8888.89   ),
+new TrajectoryPoint(33.8962,36.8195,4000.0    ),
+ new TrajectoryPoint(33.8886,35.495,0         )
             };
         }
+
         public async Task AddTrajectoryToScene()
         {
             // Check if the scene is null
@@ -147,16 +160,17 @@ namespace DisplayAScene
 
                 Polyline polyline = polylineBuilder.ToGeometry();
 
-                if (polylineBuilder.Parts.Count > 0 )
+                if (polylineBuilder.Parts.Count > 0)
                 {
                     // Create a polyline from the builder
 
                     var polylineGraphic = new Graphic(polyline);
                     polylineGraphic.IsVisible = true;
-                    polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.Red, 20);
-                    //polylineGraphic.ZIndex = 10;
+                    polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.Red, 6);
+                    //polylineGraphic.Symbol = new SimpleMarkerSymbol(SimpleMarkerSymbolStyle.Circle, System.Drawing.Color.Blue, 13);
                     CreateGraphics(polylineGraphic);
                 }
+                // Create a symbol for the point
 
 
                 Console.WriteLine("Trajectory added successfully.");
@@ -174,6 +188,7 @@ namespace DisplayAScene
             if (GraphicsOverlays == null)
             {
                 GraphicsOverlays = new GraphicsOverlayCollection();
+                // Set the SceneProperties of the GraphicsOverlay to use SurfacePlacement.Absolute
             }
 
             // Check if there is already a GraphicsOverlay to add the Graphic to, if not, create a new one.
@@ -188,7 +203,7 @@ namespace DisplayAScene
             else
             {
                 // Assuming you want to add the new graphic to the first overlay in the collection
-             //   TAGraphicsOverlay = GraphicsOverlays.First();
+                //   TAGraphicsOverlay = GraphicsOverlays.First();
             }
 
             // Add the polylineGraphic to the selected or new GraphicsOverlay
@@ -196,16 +211,34 @@ namespace DisplayAScene
             {
                 TAGraphicsOverlay.Graphics.Add(polylineGraphic);
                 TAGraphicsOverlay.IsVisible = true;
+                TAGraphicsOverlay.SceneProperties.SurfacePlacement = SurfacePlacement.RelativeToScene;
+
                 OnPropertyChanged();
             }
-    
+
         }
-            //// Set the view model "Scene" property.
+        //// Set the view model "Scene" property.
         //this.Scene = scene;
 
+        private void AddPointToScene(double latitude, double longitude)
+        {
+            // Create a point geometry
+            MapPoint point = new MapPoint(latitude, longitude, SpatialReferences.Wgs84);
 
+            // Create a symbol for the point
+            SimpleMarkerSymbol pointSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbolStyle.Circle, System.Drawing.Color.Blue, 10);
+
+            // Create a graphic for the point
+            Graphic pointGraphic = new Graphic(point, pointSymbol);
+
+            // Add the point graphic to the graphics overlay
+            CreateGraphics(pointGraphic);
+        }
 
     }
+
+
+
     public class TrajectoryPoint
     {
         public double Latitude { get; set; }
