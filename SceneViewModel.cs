@@ -211,7 +211,7 @@ namespace DisplayAScene
             {
                 TAGraphicsOverlay.Graphics.Add(polylineGraphic);
                 TAGraphicsOverlay.IsVisible = true;
-                TAGraphicsOverlay.SceneProperties.SurfacePlacement = SurfacePlacement.RelativeToScene;
+                TAGraphicsOverlay.SceneProperties.SurfacePlacement = SurfacePlacement.Relative;
 
                 OnPropertyChanged();
             }
