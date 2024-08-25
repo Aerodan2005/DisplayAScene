@@ -167,11 +167,14 @@ namespace DisplayAScene
                     var polylineGraphic = new Graphic(polyline);
                     polylineGraphic.IsVisible = true;
                     polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.Red, 6);
-                    //polylineGraphic.Symbol = new SimpleMarkerSymbol(SimpleMarkerSymbolStyle.Circle, System.Drawing.Color.Blue, 13);
                     CreateGraphics(polylineGraphic);
                 }
-                // Create a symbol for the point
-
+                // Add blue circle markers at each data point
+                foreach (var point in Trajectory)
+                {
+                    if(point.Altitude >75000)
+                        AddPointToScene(point.Latitude, point.Longitude, point.Altitude,"80km");
+                }
 
                 Console.WriteLine("Trajectory added successfully.");
             }
@@ -195,16 +198,12 @@ namespace DisplayAScene
 
             GraphicsOverlay TAGraphicsOverlay = new GraphicsOverlay();
 
-            if (GraphicsOverlays.Count == 0)
+            if (GraphicsOverlays.Count >= 0)
             {
                 TAGraphicsOverlay = new GraphicsOverlay();
                 GraphicsOverlays.Add(TAGraphicsOverlay);
             }
-            else
-            {
-                // Assuming you want to add the new graphic to the first overlay in the collection
-                //   TAGraphicsOverlay = GraphicsOverlays.First();
-            }
+
 
             // Add the polylineGraphic to the selected or new GraphicsOverlay
             if (polylineGraphic != null)
@@ -220,10 +219,10 @@ namespace DisplayAScene
         //// Set the view model "Scene" property.
         //this.Scene = scene;
 
-        private void AddPointToScene(double latitude, double longitude)
+        private void AddPointToScene(double latitude, double longitude, double altitude, string input)
         {
             // Create a point geometry
-            MapPoint point = new MapPoint(latitude, longitude, SpatialReferences.Wgs84);
+            MapPoint point = new MapPoint(longitude, latitude, altitude, SpatialReferences.Wgs84);
 
             // Create a symbol for the point
             SimpleMarkerSymbol pointSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbolStyle.Circle, System.Drawing.Color.Blue, 10);
@@ -233,6 +232,14 @@ namespace DisplayAScene
 
             // Add the point graphic to the graphics overlay
             CreateGraphics(pointGraphic);
+
+            // Display the input above the point
+            if (!string.IsNullOrEmpty(input))
+            {
+                TextSymbol textSymbol = new TextSymbol(input, System.Drawing.Color.Blue, 24, Esri.ArcGISRuntime.Symbology.HorizontalAlignment.Left, Esri.ArcGISRuntime.Symbology.VerticalAlignment.Top);
+                Graphic textGraphic = new Graphic(point, textSymbol);
+                CreateGraphics(textGraphic);
+            }
         }
 
     }
