@@ -18,8 +18,15 @@
                         Scene="{Binding Scene}"
                         GraphicsOverlays="{Binding GraphicsOverlays}" 
                         />
-
-        <Button Content="Show Traj" HorizontalAlignment="Left" Margin="10" VerticalAlignment="Top" Click="ShowTraj_Click" />
+        <StackPanel>
+            <Button Content="Show Traj" HorizontalAlignment="Left" Margin="10" VerticalAlignment="Top" Click="ShowTraj_Click" />
+            <Button Content="Clear all" HorizontalAlignment="Left" Margin="10" VerticalAlignment="Top" Click="ClearAll_Click" />
+            <Button Content="Next Pt" HorizontalAlignment="Left" Margin="10" VerticalAlignment="Top" Click="NextPt_Click" />
+            <Button Content="All Traj" HorizontalAlignment="Left" Margin="10" VerticalAlignment="Top" Click="AllTraj_Click" />
+            
+            
+            
+        </StackPanel>
     </Grid>
 
 </Window>  

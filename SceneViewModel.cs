@@ -21,7 +21,9 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace DisplayAScene
 {
@@ -108,37 +110,12 @@ namespace DisplayAScene
 
         }
 
-        public List<TrajectoryPoint> Trajectory { get; set; }
-
         public void LoadTrajectoryData()
         {
-            Trajectory = new List<TrajectoryPoint>
-            {
-
-
-                new TrajectoryPoint(35.6962,51.4229,0),
-                new TrajectoryPoint(35.5962,50.6116,8888.89   ),
-                new TrajectoryPoint(35.4962,49.8003,17777.78  ),
-                new TrajectoryPoint(35.3962,48.9890,26666.67  ),
-                new TrajectoryPoint(35.2962,48.1777,35555.56  ),
-                new TrajectoryPoint(35.1962,47.3664,44444.44  ),
-                new TrajectoryPoint(35.0962,46.5551,53333.33  ),
-                new TrajectoryPoint(34.9962,45.7438,62222.22  ),
-                new TrajectoryPoint(34.8962,44.9325,71111.11  ),
-                new TrajectoryPoint(34.7962,44.1212,80000     ),
-                new TrajectoryPoint(34.6962,43.3099,71111.11  ),
-                new TrajectoryPoint(34.5962,42.4986,62222.22  ),
-                new TrajectoryPoint(34.4962,41.6873,53333.33  ),
-                new TrajectoryPoint(34.3962,40.8760,44444.44  ),
-                new TrajectoryPoint(34.2962,40.0647,35555.56  ),
-                new TrajectoryPoint(34.1962,39.2534,26666.67  ),
-                new TrajectoryPoint(34.0962,38.4421,20000.78  ),
-                new TrajectoryPoint(33.9962,37.6308,17000   ),
-                new TrajectoryPoint(33.8962,36.8195,4000.0    ),
-                new TrajectoryPoint(33.8886,35.495,0          )
-            };
         }
-
+        public double ThetaGeneral = 90.0;
+        public double PsiGeneral = -90.0;
+        public double PhiGeneral = 10.0;
         public async Task AddTrajectoryToScene()
         {
             // Check if the scene is null
@@ -147,15 +124,17 @@ namespace DisplayAScene
                 Console.WriteLine("Scene is null. Cannot add trajectory.");
                 return;
             }
-
+            double Theta = 90.0;
+            double Psi = -90.0;
+            double Phi = 10.0;
             try
             {
                 // Load the trajectory data
                 PolylineBuilder polylineBuilder = new PolylineBuilder(SpatialReferences.Wgs84);
 
-                foreach (var point in Trajectory)
+                foreach (var point in DataStore.Trajectory)
                 {
-                    polylineBuilder.AddPoint(point.Longitude, point.Latitude, point.Altitude);
+                    polylineBuilder.AddPoint(point.Longitude, point.Latitude, point.Altitude * 1000.0);
                 }
 
                 Polyline polyline = polylineBuilder.ToGeometry();
@@ -170,10 +149,13 @@ namespace DisplayAScene
                     CreateGraphics(polylineGraphic);
                 }
                 // Add blue circle markers at each data point
-                foreach (var point in Trajectory)
+                foreach (var point in DataStore.Trajectory)
                 {
-                    if(point.Altitude >75000)
-                        AddPointToScene(point.Latitude, point.Longitude, point.Altitude,"80km");
+                    if (point.Altitude * 1000.0 > 399000)
+                    { 
+                        AddPointToScene(point.Latitude, point.Longitude, point.Altitude * 1000.0, "400km");
+                        //AddMissileToScene(point.Latitude, point.Longitude, point.Altitude * 1000.0,Theta,Psi,Phi);
+                    }
                 }
 
                 Console.WriteLine("Trajectory added successfully.");
@@ -183,9 +165,9 @@ namespace DisplayAScene
                 Console.WriteLine("Failed to load the trajectory: " + ex.Message);
             }
         }
-        //public Esri.ArcGISRuntime.UI.GraphicsOverlay TAGraphicsOverlay;
+
         // Modified CreateGraphics to accept a Graphic parameter
-        private void CreateGraphics(Graphic polylineGraphic)
+        private void CreateGraphics(Graphic anyGraphic)
         {
             // Check if the GraphicsOverlays collection is initialized, if not, initialize it.
             if (GraphicsOverlays == null)
@@ -205,10 +187,10 @@ namespace DisplayAScene
             }
 
 
-            // Add the polylineGraphic to the selected or new GraphicsOverlay
-            if (polylineGraphic != null)
+            // Add the anyGraphic to the selected or new GraphicsOverlay
+            if (anyGraphic != null)
             {
-                TAGraphicsOverlay.Graphics.Add(polylineGraphic);
+                TAGraphicsOverlay.Graphics.Add(anyGraphic);
                 TAGraphicsOverlay.IsVisible = true;
                 TAGraphicsOverlay.SceneProperties.SurfacePlacement = SurfacePlacement.Relative;
 
@@ -218,7 +200,35 @@ namespace DisplayAScene
         }
         //// Set the view model "Scene" property.
         //this.Scene = scene;
-
+        // Method to remove a specific graphic
+        public void RemoveGraphic(Graphic graphic)
+        {
+            if (GraphicsOverlays != null)
+            {
+                foreach (var overlay in GraphicsOverlays)
+                {
+                    if (overlay.Graphics.Contains(graphic))
+                    {
+                        overlay.Graphics.Remove(graphic);
+                        OnPropertyChanged();
+                        break;
+                    }
+                }
+            }
+        }
+        // Method to clear all graphics
+        public void ClearAllGraphics()
+        {
+            if (GraphicsOverlays != null)
+            {
+                foreach (var overlay in GraphicsOverlays)
+                {
+                    overlay.Graphics.Clear();
+                }
+                OnPropertyChanged();
+            }
+        }
+        public Graphic missileGraphic;
         private void AddPointToScene(double latitude, double longitude, double altitude, string input)
         {
             // Create a point geometry
@@ -242,23 +252,75 @@ namespace DisplayAScene
             }
         }
 
-    }
+        // Create the plane symbol and make it 10x larger (to be the right size relative to the scene).
+        public ModelSceneSymbol missileSymbol;
 
-
-
-    public class TrajectoryPoint
-    {
-        public double Latitude { get; set; }
-        public double Longitude { get; set; }
-        public double Altitude { get; set; }
-
-        public TrajectoryPoint(double latitude, double longitude, double altitude)
+        private async Task AddMissileToScene(double latitude, double longitude, double altitude, double Theta, double Psi, double Phi)
         {
-            Latitude = latitude;
-            Longitude = longitude;
-            Altitude = altitude;
+
+            try
+            {
+                missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri("C:\\Work\\display-a-scene\\3D Objects\\singleX.obj"), 100.0);
+                missileSymbol.Heading = Psi;
+                missileSymbol.Pitch = Theta;
+                missileSymbol.Roll = Phi;
+            
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+                MessageBox.Show("Loading missile model failed. Sample failed to initialize.");
+                return;
+            }
+
+            // Create a graphic using the plane symbol.
+            missileGraphic = new Graphic(new MapPoint(longitude,latitude, altitude, SpatialReferences.Wgs84), missileSymbol);
+            CreateGraphics(missileGraphic);
         }
+
+        public async Task GoNextPt(int ind)
+        {
+            RemoveGraphic(missileGraphic);
+            LoadTrajectoryData();
+            try
+            {
+                missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri("C:\\Work\\display-a-scene\\3D Objects\\singleX.obj"), 100.0);
+
+                double latitude = DataStore.Trajectory[ind].Latitude;
+                double longitude = DataStore.Trajectory[ind].Longitude;
+                double altitude = DataStore.Trajectory[ind].Altitude;
+                missileSymbol.Heading = PsiGeneral;
+                missileSymbol.Pitch = ThetaGeneral;
+                missileSymbol.Roll = PhiGeneral;
+
+                // Create a graphic using the plane symbol.
+                missileGraphic = new Graphic(new MapPoint(longitude, latitude, altitude * 1000, SpatialReferences.Wgs84), missileSymbol);
+                CreateGraphics(missileGraphic);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+                MessageBox.Show("Loading missile model failed. Sample failed to initialize.");
+                return;
+            }
+        }
+        public async Task GoThroughTrajectory()
+        {
+            for (int i = 0; i < DataStore.Trajectory.Count; i++)
+            {
+                await GoNextPt(i);
+
+                // Sleep for 100 milliseconds
+                Thread.Sleep(100);
+                
+            }
+        }
+
+
     }
+
+
+
 
 }
 

@@ -40,12 +40,33 @@ namespace DisplayAScene
             DataContext = new SceneViewModel();
 
         }
-
+        static int ind = 0;
         private async void ShowTraj_Click(object sender, RoutedEventArgs e)
         {
             SceneViewModel sceneViewModel = DataContext as SceneViewModel;
             sceneViewModel.LoadTrajectoryData();
              sceneViewModel.AddTrajectoryToScene();
+        }
+        private async void ClearAll_Click(object sender, RoutedEventArgs e)
+        {
+            SceneViewModel sceneViewModel = DataContext as SceneViewModel;
+            sceneViewModel.ClearAllGraphics();
+            ind = 0;
+        }
+
+        private async void NextPt_Click(object sender, RoutedEventArgs e)
+        {
+            
+            SceneViewModel sceneViewModel = DataContext as SceneViewModel;
+            sceneViewModel.GoNextPt(ind);
+            ind++;
+
+        }
+
+        private void AllTraj_Click(object sender, RoutedEventArgs e)
+        {
+            SceneViewModel sceneViewModel = DataContext as SceneViewModel;
+            sceneViewModel.GoThroughTrajectory();
         }
     }
 }
