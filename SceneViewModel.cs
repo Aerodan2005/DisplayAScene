@@ -289,9 +289,10 @@ namespace DisplayAScene
                 double latitude = DataStore.Trajectory[ind].Latitude;
                 double longitude = DataStore.Trajectory[ind].Longitude;
                 double altitude = DataStore.Trajectory[ind].Altitude;
-                missileSymbol.Heading = PsiGeneral;
-                missileSymbol.Pitch = ThetaGeneral;
-                missileSymbol.Roll = PhiGeneral;
+                CalculateBodyAngles(ind);
+                missileSymbol.Heading = DataStore.Trajectory[ind].Heading + PhiGeneral;
+                missileSymbol.Pitch = DataStore.Trajectory[ind].Pitch + ThetaGeneral;
+                missileSymbol.Roll = DataStore.Trajectory[ind].Roll;
 
                 // Create a graphic using the plane symbol.
                 missileGraphic = new Graphic(new MapPoint(longitude, latitude, altitude * 1000, SpatialReferences.Wgs84), missileSymbol);
@@ -299,8 +300,8 @@ namespace DisplayAScene
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(ex.Message);
-                MessageBox.Show("Loading missile model failed. Sample failed to initialize.");
+                //System.Diagnostics.Debug.WriteLine(ex.Message);
+                //MessageBox.Show("Loading missile model failed. Sample failed to initialize.");
                 return;
             }
         }
@@ -310,10 +311,44 @@ namespace DisplayAScene
             {
                 await GoNextPt(i);
 
-                // Sleep for 100 milliseconds
-                Thread.Sleep(100);
-                
+                // Use Task.Delay instead of Thread.Sleep to avoid blocking the main thread
+                await Task.Delay(100);
+
             }
+        }
+        public void CalculateBodyAngles(int ind)
+        {
+            //for (int i = 0; i < DataStore.Trajectory.Count - 1; i++)
+            int i = ind;
+            {
+                var currentPoint = DataStore.Trajectory[i];
+                var nextPoint = DataStore.Trajectory[i + 1];
+
+                double latDiff = nextPoint.Latitude - currentPoint.Latitude;
+                double lonDiff = nextPoint.Longitude - currentPoint.Longitude;
+                double altDiff = (nextPoint.Altitude - currentPoint.Altitude)*1000.0;
+                double forwardDiff = Math.Sqrt(latDiff * latDiff + lonDiff * lonDiff);
+                forwardDiff = DegreesToMeters(forwardDiff, currentPoint.Latitude);
+
+                double DEG2RAD = 0.017453292519943295;
+
+                currentPoint.Heading = Math.Atan2(lonDiff * DEG2RAD, latDiff*DEG2RAD) * (180 / Math.PI); // Convert to degrees
+                currentPoint.Pitch = Math.Atan2(altDiff, forwardDiff) * (180 / Math.PI); // Convert to degrees
+                currentPoint.Roll = 0;
+            }
+
+            // Set the angles for the last point
+            var lastPoint = DataStore.Trajectory[DataStore.Trajectory.Count - 1];
+            lastPoint.Heading = 0;
+            lastPoint.Pitch = 0;
+            lastPoint.Roll = 0;
+        }
+        public double DegreesToMeters(double degrees, double latitude)
+        {
+            double earthRadius = 6371000; // Earth's radius in meters
+            double radians = degrees * Math.PI / 180;
+            double meters = earthRadius * radians * Math.Cos(latitude * Math.PI / 180);
+            return meters;
         }
 
 
