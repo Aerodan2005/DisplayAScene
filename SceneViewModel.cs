@@ -17,6 +17,7 @@ using Esri.ArcGISRuntime.Mapping;
 
 using Esri.ArcGISRuntime.Symbology;
 using Esri.ArcGISRuntime.UI;
+using Esri.ArcGISRuntime.UI.Controls;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -151,12 +152,21 @@ namespace DisplayAScene
                 // Add blue circle markers at each data point
                 foreach (var point in DataStore.Trajectory)
                 {
-                    if (point.Altitude * 1000.0 > 399000)
-                    { 
-                        AddPointToScene(point.Latitude, point.Longitude, point.Altitude * 1000.0, "400km");
-                        //AddMissileToScene(point.Latitude, point.Longitude, point.Altitude * 1000.0,Theta,Psi,Phi);
+                    if (point.Altitude  > 80)
+                    {
+                        AddPointToScene(point.Latitude, point.Longitude, point.Altitude * 1000.0, "Seperation");
+                        break;
                     }
                 }
+                foreach (var point in DataStore.Trajectory)
+                {
+                    if (point.Altitude == 400)
+                    {
+                        AddPointToScene(point.Latitude, point.Longitude, point.Altitude * 1000.0, "Apogea 400 km");
+                        break;
+                    }
+                }
+
 
                 Console.WriteLine("Trajectory added successfully.");
             }
@@ -229,6 +239,8 @@ namespace DisplayAScene
             }
         }
         public Graphic missileGraphic;
+        // Camera controller for centering the camera on the missile
+        private OrbitGeoElementCameraController _orbitCameraController;
         private void AddPointToScene(double latitude, double longitude, double altitude, string input)
         {
             // Create a point geometry
@@ -264,7 +276,7 @@ namespace DisplayAScene
                 missileSymbol.Heading = Psi;
                 missileSymbol.Pitch = Theta;
                 missileSymbol.Roll = Phi;
-            
+
             }
             catch (Exception ex)
             {
@@ -274,8 +286,14 @@ namespace DisplayAScene
             }
 
             // Create a graphic using the plane symbol.
-            missileGraphic = new Graphic(new MapPoint(longitude,latitude, altitude, SpatialReferences.Wgs84), missileSymbol);
+            missileGraphic = new Graphic(new MapPoint(longitude, latitude, altitude, SpatialReferences.Wgs84), missileSymbol);
             CreateGraphics(missileGraphic);
+            //// Create the orbit camera controller to follow the plane
+            //_orbitCameraController = new OrbitGeoElementCameraController(missileGraphic, 20.0)
+            //{
+            //    CameraPitchOffset = 75.0
+            //};
+            //scene.CameraController = _orbitCameraController;
         }
 
         public async Task GoNextPt(int ind)
@@ -326,13 +344,13 @@ namespace DisplayAScene
 
                 double latDiff = nextPoint.Latitude - currentPoint.Latitude;
                 double lonDiff = nextPoint.Longitude - currentPoint.Longitude;
-                double altDiff = (nextPoint.Altitude - currentPoint.Altitude)*1000.0;
+                double altDiff = (nextPoint.Altitude - currentPoint.Altitude) * 1000.0;
                 double forwardDiff = Math.Sqrt(latDiff * latDiff + lonDiff * lonDiff);
                 forwardDiff = DegreesToMeters(forwardDiff, currentPoint.Latitude);
 
                 double DEG2RAD = 0.017453292519943295;
 
-                currentPoint.Heading = Math.Atan2(lonDiff * DEG2RAD, latDiff*DEG2RAD) * (180 / Math.PI); // Convert to degrees
+                currentPoint.Heading = Math.Atan2(lonDiff * DEG2RAD, latDiff * DEG2RAD) * (180 / Math.PI); // Convert to degrees
                 currentPoint.Pitch = Math.Atan2(altDiff, forwardDiff) * (180 / Math.PI); // Convert to degrees
                 currentPoint.Roll = 0;
             }
@@ -350,6 +368,8 @@ namespace DisplayAScene
             double meters = earthRadius * radians * Math.Cos(latitude * Math.PI / 180);
             return meters;
         }
+
+
 
 
     }
