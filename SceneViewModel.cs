@@ -21,6 +21,9 @@ using Esri.ArcGISRuntime.UI.Controls;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -72,7 +75,7 @@ namespace DisplayAScene
         private async Task SetupScene()
         {
             // Create a new scene with an imagery basemap.
-            Scene scene = new Scene(BasemapStyle.ArcGISImageryStandard);
+            Scene scene = new Scene(BasemapStyle.OSMHybrid);
 
             // Create a file path to the scene package or scene layer package.
             string scenePath = @"C:\Users\urika\OneDrive\מסמכים\ArcGIS\Projects\Med2\Med2.mspk";
@@ -104,7 +107,62 @@ namespace DisplayAScene
                 Console.WriteLine("Failed to load the scene: " + ex.Message);
             }
 
+            try
+            {
 
+                // Load the first TPK file
+                string tpkPath1 = @"C:\Work\TilePackages\world_imagery_tpk.tpk";
+                if (!File.Exists(tpkPath1))
+                {
+                    throw new FileNotFoundException("TPK file not found.", tpkPath1);
+                }
+                var tiledLayer1 = new ArcGISTiledLayer(new Uri(tpkPath1));
+                await tiledLayer1.LoadAsync();
+
+                // Load the second TPK file
+                string tpkPath2 = @"C:\Work\TilePackages\world_boundaries_and_places_4-11.tpk";
+                if (!File.Exists(tpkPath2))
+                {
+                    throw new FileNotFoundException("TPK file not found.", tpkPath2);
+                }
+                var tiledLayer2 = new ArcGISTiledLayer(new Uri(tpkPath2));
+                await tiledLayer2.LoadAsync();
+
+                //// Load the VTPK file
+                //string vtpkPath = @"C:\Work\BaseMaps\Hybrid.vtpk";
+                //if (!File.Exists(vtpkPath))
+                //{
+                //    throw new FileNotFoundException("VTPK file not found.", vtpkPath);
+                //}
+                //var vectorTiledLayer = new ArcGISVectorTiledLayer(new Uri(vtpkPath));
+                //await vectorTiledLayer.LoadAsync();
+
+                // Create a new basemap with the first tiled layer
+                var basemap = new Basemap(tiledLayer1);
+
+                // Set the basemap to the map
+                this.Scene.Basemap = basemap;
+
+                //Add the second tiled layer as an operational layer
+                this.Scene.OperationalLayers.Add(tiledLayer2);
+
+                // Add the vector tiled layer as an operational layer
+                //this.Map.OperationalLayers.Add(vectorTiledLayer);
+
+                // Add the first map from the mobile map package as the last layer
+                //var mobileMap = mobileMapPackage.Maps.First();
+                //foreach (var layer in mobileMap.OperationalLayers)
+                //{
+                //    this.Map.OperationalLayers.Add(layer);
+                //}
+
+            }
+            catch (Exception ex)
+            {
+                // Log the exception message
+                Debug.WriteLine($"Exception: {ex.Message}");
+                MessageBox.Show($"Failed to load map layers: {ex.Message}");
+            }
 
             // Show the layer in the scene.
             //this.Scene.OperationalLayers.Add(TAGraphicsOverlay);
