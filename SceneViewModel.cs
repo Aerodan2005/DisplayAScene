@@ -117,7 +117,7 @@ namespace DisplayAScene
                     throw new FileNotFoundException("TPK file not found.", tpkPath1);
                 }
                 var tiledLayer1 = new ArcGISTiledLayer(new Uri(tpkPath1));
-                await tiledLayer1.LoadAsync();
+                //await tiledLayer1.LoadAsync();
 
                 // Load the second TPK file
                 string tpkPath2 = @"C:\Work\TilePackages\world_boundaries_and_places_4-11.tpk";
@@ -126,7 +126,7 @@ namespace DisplayAScene
                     throw new FileNotFoundException("TPK file not found.", tpkPath2);
                 }
                 var tiledLayer2 = new ArcGISTiledLayer(new Uri(tpkPath2));
-                await tiledLayer2.LoadAsync();
+                //await tiledLayer2.LoadAsync();
 
                 //// Load the VTPK file
                 //string vtpkPath = @"C:\Work\BaseMaps\Hybrid.vtpk";
