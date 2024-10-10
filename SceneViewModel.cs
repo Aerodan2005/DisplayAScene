@@ -39,6 +39,9 @@ namespace DisplayAScene
         public SceneViewModel()
         {
             SetupScene();
+            Scene = new Scene(BasemapStyle.ArcGISImageryStandard);
+            MyBodyView = new Scene(BasemapStyle.ArcGISImageryStandard);
+
             //OnPropertyChanged();
         }
 
@@ -58,6 +61,29 @@ namespace DisplayAScene
                 OnPropertyChanged();
             }
         }
+        private Scene _myBodyView;
+        public Scene? MyBodyView
+        {
+            get { return _myBodyView; }
+            set
+            {
+                _myBodyView = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private SceneView? _sceneView;
+        public SceneView? SceneView
+        {
+            get { return _sceneView; }
+            set
+            {
+                _sceneView = value;
+                OnPropertyChanged();
+            }
+        }
+
+
         private GraphicsOverlayCollection? _graphicsOverlays;
         public GraphicsOverlayCollection? GraphicsOverlays
         {
@@ -71,12 +97,13 @@ namespace DisplayAScene
                 OnPropertyChanged();
             }
         }
-
+        public Scene scene;
+        public Scene myBodyView;
         private async Task SetupScene()
         {
             // Create a new scene with an imagery basemap.
-            Scene scene = new Scene(BasemapStyle.OSMHybrid);
-
+             scene = new Scene(BasemapStyle.OSMHybrid);
+             myBodyView = new Scene(BasemapStyle.OSMHybrid);
             // Create a file path to the scene package or scene layer package.
             string scenePath = @"C:\Users\urika\OneDrive\מסמכים\ArcGIS\Projects\Med2\Med2.mspk";
 
@@ -93,6 +120,7 @@ namespace DisplayAScene
 
                     // Set the view model "Scene" property.
                     this.Scene = scene;
+                    this.MyBodyView = scene;
 
                     Console.WriteLine("Scene setup completed successfully.");
                 }
@@ -142,9 +170,11 @@ namespace DisplayAScene
 
                 // Set the basemap to the map
                 this.Scene.Basemap = basemap;
+                this.MyBodyView.Basemap = basemap;
 
                 //Add the second tiled layer as an operational layer
                 this.Scene.OperationalLayers.Add(tiledLayer2);
+                //this.MyBodyView.OperationalLayers.Add(tiledLayer2);
 
                 // Add the vector tiled layer as an operational layer
                 //this.Map.OperationalLayers.Add(vectorTiledLayer);
@@ -155,6 +185,8 @@ namespace DisplayAScene
                 //{
                 //    this.Map.OperationalLayers.Add(layer);
                 //}
+                // 
+
 
             }
             catch (Exception ex)
@@ -346,12 +378,7 @@ namespace DisplayAScene
             // Create a graphic using the plane symbol.
             missileGraphic = new Graphic(new MapPoint(longitude, latitude, altitude, SpatialReferences.Wgs84), missileSymbol);
             CreateGraphics(missileGraphic);
-            //// Create the orbit camera controller to follow the plane
-            //_orbitCameraController = new OrbitGeoElementCameraController(missileGraphic, 20.0)
-            //{
-            //    CameraPitchOffset = 75.0
-            //};
-            //scene.CameraController = _orbitCameraController;
+
         }
 
         public async Task GoNextPt(int ind)
@@ -381,12 +408,28 @@ namespace DisplayAScene
                 return;
             }
         }
+
         public async Task GoThroughTrajectory()
         {
+            SceneView = new SceneView();
             for (int i = 0; i < DataStore.Trajectory.Count; i++)
             {
                 await GoNextPt(i);
 
+                // Create the orbit camera controller to follow the missile
+                _orbitCameraController = new OrbitGeoElementCameraController(missileGraphic, 20.0)
+                {
+                    CameraPitchOffset = 75.0
+                };
+                //this.MyBodyView.InitialViewpoint = _orbitCameraController;
+                // Set the CameraController on the SceneView instead of the Scene
+                if (this.SceneView != null)
+                {
+                    this.SceneView.CameraController = _orbitCameraController;
+                }
+                //MyBodyView = Scene;
+
+                
                 // Use Task.Delay instead of Thread.Sleep to avoid blocking the main thread
                 await Task.Delay(100);
 

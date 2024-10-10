@@ -23,9 +23,12 @@
             <Button Content="Clear all" HorizontalAlignment="Left" Margin="10" VerticalAlignment="Top" Click="ClearAll_Click" />
             <Button Content="Next Pt" HorizontalAlignment="Left" Margin="10" VerticalAlignment="Top" Click="NextPt_Click" />
             <Button Content="All Traj" HorizontalAlignment="Left" Margin="10" VerticalAlignment="Top" Click="AllTraj_Click" />
-            
-            
-            
+
+            <esri:SceneView x:Name="MyBodyView"
+                            Scene="{Binding MyBodyView}"
+                            GraphicsOverlays="{Binding GraphicsOverlays}" />
+
+
         </StackPanel>
     </Grid>
 
