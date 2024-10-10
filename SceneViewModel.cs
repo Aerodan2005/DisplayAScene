@@ -104,6 +104,8 @@ namespace DisplayAScene
             // Create a new scene with an imagery basemap.
              scene = new Scene(BasemapStyle.OSMHybrid);
              myBodyView = new Scene(BasemapStyle.OSMHybrid);
+            SceneView = new SceneView();
+            InitializeSceneView();
             // Create a file path to the scene package or scene layer package.
             string scenePath = @"C:\Users\urika\OneDrive\מסמכים\ArcGIS\Projects\Med2\Med2.mspk";
 
@@ -200,7 +202,13 @@ namespace DisplayAScene
             //this.Scene.OperationalLayers.Add(TAGraphicsOverlay);
 
         }
-
+        public void InitializeSceneView()
+         {
+            if (SceneView != null)
+            {
+                SceneView.Scene = MyBodyView;
+            }
+        }
         public void LoadTrajectoryData()
         {
         }
@@ -411,7 +419,7 @@ namespace DisplayAScene
 
         public async Task GoThroughTrajectory()
         {
-            SceneView = new SceneView();
+
             for (int i = 0; i < DataStore.Trajectory.Count; i++)
             {
                 await GoNextPt(i);
