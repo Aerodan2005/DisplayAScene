@@ -83,6 +83,17 @@ namespace DisplayAScene
             }
         }
 
+        private double _missileAlt;
+        public double MissileAlt
+        {
+            get { return _missileAlt; }
+            set
+            {
+                _missileAlt = value;
+                OnPropertyChanged();
+            }
+        }
+
 
         private GraphicsOverlayCollection? _graphicsOverlays;
         public GraphicsOverlayCollection? GraphicsOverlays
@@ -99,12 +110,14 @@ namespace DisplayAScene
         }
         public Scene scene;
         public Scene myBodyView;
+
         private async Task SetupScene()
         {
             // Create a new scene with an imagery basemap.
              scene = new Scene(BasemapStyle.OSMHybrid);
              myBodyView = new Scene(BasemapStyle.OSMHybrid);
             SceneView = new SceneView();
+            this.MissileAlt = 0.0;
             InitializeSceneView();
             // Create a file path to the scene package or scene layer package.
             string scenePath = @"C:\Users\urika\OneDrive\מסמכים\ArcGIS\Projects\Med2\Med2.mspk";
@@ -365,37 +378,40 @@ namespace DisplayAScene
         // Create the plane symbol and make it 10x larger (to be the right size relative to the scene).
         public ModelSceneSymbol missileSymbol;
 
+        // Modify the AddMissileToScene method to include translation
         private async Task AddMissileToScene(double latitude, double longitude, double altitude, double Theta, double Psi, double Phi)
         {
-
             try
             {
-                missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri("C:\\Work\\display-a-scene\\3D Objects\\singleX.obj"), 100.0);
+                missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri("C:\\Work\\display-a-scene\\3D Objects\\singleX.obj"), 1.0);
                 missileSymbol.Heading = Psi;
                 missileSymbol.Pitch = Theta;
                 missileSymbol.Roll = Phi;
 
+                // Create a graphic using the plane symbol.
+                missileGraphic = new Graphic(new MapPoint(longitude, latitude, altitude * 1000, SpatialReferences.Wgs84), missileSymbol);
+
+                //// Apply translation to the graphic
+                //missileGraphic.Translation = new System.Windows.Media.Media3D.Vector3D(0, 0, 0); // Modify the translation values as needed
+
+                CreateGraphics(missileGraphic);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(ex.Message);
-                MessageBox.Show("Loading missile model failed. Sample failed to initialize.");
-                return;
+                // Handle the exception
+                Console.WriteLine("Failed to add missile to scene: " + ex.Message);
             }
-
-            // Create a graphic using the plane symbol.
-            missileGraphic = new Graphic(new MapPoint(longitude, latitude, altitude, SpatialReferences.Wgs84), missileSymbol);
-            CreateGraphics(missileGraphic);
-
         }
 
+        
         public async Task GoNextPt(int ind)
         {
             RemoveGraphic(missileGraphic);
             LoadTrajectoryData();
             try
             {
-                missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri("C:\\Work\\display-a-scene\\3D Objects\\singleX.obj"), 100.0);
+                this.MissileAlt = DataStore.Trajectory[ind].Altitude;
+                missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri("C:\\Work\\display-a-scene\\3D Objects\\singleX.obj"), 1.0);
 
                 double latitude = DataStore.Trajectory[ind].Latitude;
                 double longitude = DataStore.Trajectory[ind].Longitude;
@@ -408,6 +424,9 @@ namespace DisplayAScene
                 // Create a graphic using the plane symbol.
                 missileGraphic = new Graphic(new MapPoint(longitude, latitude, altitude * 1000, SpatialReferences.Wgs84), missileSymbol);
                 CreateGraphics(missileGraphic);
+
+                
+
             }
             catch (Exception ex)
             {
@@ -425,9 +444,10 @@ namespace DisplayAScene
                 await GoNextPt(i);
 
                 // Create the orbit camera controller to follow the missile
-                _orbitCameraController = new OrbitGeoElementCameraController(missileGraphic, 20.0)
+                _orbitCameraController = new OrbitGeoElementCameraController(missileGraphic, 15000.0)
                 {
-                    CameraPitchOffset = 75.0
+                    //CameraPitchOffset = 90.0,
+                    //CameraHeadingOffset = 90.0,
                 };
                 //this.MyBodyView.InitialViewpoint = _orbitCameraController;
                 // Set the CameraController on the SceneView instead of the Scene
