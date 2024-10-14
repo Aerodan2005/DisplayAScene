@@ -110,7 +110,7 @@ namespace DisplayAScene
         }
         public Scene scene;
         public Scene myBodyView;
-
+        public string MissileAltTxt { get; set; }
         private async Task SetupScene()
         {
             // Create a new scene with an imagery basemap.
@@ -118,6 +118,7 @@ namespace DisplayAScene
              myBodyView = new Scene(BasemapStyle.OSMHybrid);
             SceneView = new SceneView();
             this.MissileAlt = 0.0;
+            this.MissileAltTxt = MissileAlt.ToString();
             InitializeSceneView();
             // Create a file path to the scene package or scene layer package.
             string scenePath = @"C:\Users\urika\OneDrive\מסמכים\ArcGIS\Projects\Med2\Med2.mspk";
@@ -136,6 +137,10 @@ namespace DisplayAScene
                     // Set the view model "Scene" property.
                     this.Scene = scene;
                     this.MyBodyView = scene;
+
+
+                    SetupCamera(25, 35, 10000, 0, -20, 0);
+
 
                     Console.WriteLine("Scene setup completed successfully.");
                 }
@@ -222,6 +227,21 @@ namespace DisplayAScene
                 SceneView.Scene = MyBodyView;
             }
         }
+
+        private void SetupCamera(double latitude,double longitude,double altitude, double heading,double pitch,double roll)
+        {
+
+            // Create a new Camera instance with the specified parameters
+            Camera camera = new Camera(latitude, longitude, altitude, heading, pitch, roll);
+
+            // Set the SceneView's Camera property to the new Camera instance
+            //if (SceneView != null)
+            //{
+                SceneView.SetViewpointCamera(camera);
+            //}
+        }
+
+
         public void LoadTrajectoryData()
         {
         }
@@ -257,13 +277,13 @@ namespace DisplayAScene
 
                     var polylineGraphic = new Graphic(polyline);
                     polylineGraphic.IsVisible = true;
-                    polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.Red, 6);
+                    polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.FromArgb(128, System.Drawing.Color.Red), 6);
                     CreateGraphics(polylineGraphic);
                 }
                 // Add blue circle markers at each data point
                 foreach (var point in DataStore.Trajectory)
                 {
-                    if (point.Altitude  > 80)
+                    if (point.Altitude  == 87.257)
                     {
                         AddPointToScene(point.Latitude, point.Longitude, point.Altitude * 1000.0, "Seperation");
                         break;
@@ -352,6 +372,8 @@ namespace DisplayAScene
         public Graphic missileGraphic;
         // Camera controller for centering the camera on the missile
         private OrbitGeoElementCameraController _orbitCameraController;
+        private Camera _newCameraController; 
+
         private void AddPointToScene(double latitude, double longitude, double altitude, string input)
         {
             // Create a point geometry
@@ -410,7 +432,7 @@ namespace DisplayAScene
             LoadTrajectoryData();
             try
             {
-                this.MissileAlt = DataStore.Trajectory[ind].Altitude;
+                MissileAlt = DataStore.Trajectory[ind].Altitude;
                 missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri("C:\\Work\\display-a-scene\\3D Objects\\singleX.obj"), 1.0);
 
                 double latitude = DataStore.Trajectory[ind].Latitude;
@@ -442,7 +464,7 @@ namespace DisplayAScene
             for (int i = 0; i < DataStore.Trajectory.Count; i++)
             {
                 await GoNextPt(i);
-
+                this.MissileAltTxt = MissileAlt.ToString();
                 // Create the orbit camera controller to follow the missile
                 _orbitCameraController = new OrbitGeoElementCameraController(missileGraphic, 15000.0)
                 {
@@ -455,14 +477,49 @@ namespace DisplayAScene
                 {
                     this.SceneView.CameraController = _orbitCameraController;
                 }
-                //MyBodyView = Scene;
+                    // if (DataStore.Trajectory[i].Altitude == 87.257)
+                    //{
+                    //    AddPointToScene(DataStore.Trajectory[i].Latitude, DataStore.Trajectory[i].Longitude, DataStore.Trajectory[i].Altitude * 1000.0, "Seperation");
+                    //}
 
-                
+                    if (DataStore.Trajectory[i].Altitude == 400)
+                    {
+                        AddPointToScene(DataStore.Trajectory[i].Latitude, DataStore.Trajectory[i].Longitude, DataStore.Trajectory[i].Altitude * 1000.0, "Apogea 400 km");
+                    }
+
+
                 // Use Task.Delay instead of Thread.Sleep to avoid blocking the main thread
                 await Task.Delay(100);
 
             }
         }
+
+        public async Task GoThroughTrajectoryBall()
+        {
+
+            for (int i = 0; i < DataStore.Trajectory.Count; i++)
+            {
+                await GoNextPt(i);
+
+                // Create the orbit camera controller to follow the missile
+                _newCamera = new Camera(25, 35, 10000, 0, -20, 0);
+                {
+                    //CameraPitchOffset = 90.0,
+                    //CameraHeadingOffset = 90.0,
+                };
+                //this.MyBodyView.InitialViewpoint = _orbitCameraController;
+                // Set the CameraController on the SceneView instead of the Scene
+                if (this.SceneView != null)
+                {
+                    this.SceneView.Camera = _newCamera;
+                }
+
+                // Use Task.Delay instead of Thread.Sleep to avoid blocking the main thread
+                await Task.Delay(100);
+
+            }
+        }
+
         public void CalculateBodyAngles(int ind)
         {
             //for (int i = 0; i < DataStore.Trajectory.Count - 1; i++)
