@@ -12,6 +12,7 @@
 // limitations under the License.
 
 
+using Esri.ArcGISRuntime.Data;
 using Esri.ArcGISRuntime.Geometry;
 using Esri.ArcGISRuntime.Mapping;
 
@@ -83,16 +84,17 @@ namespace DisplayAScene
             }
         }
 
-        private double _missileAlt;
-        public double MissileAlt
+        private string _missileAltTxt;
+        public string MissileAltTxt
         {
-            get { return _missileAlt; }
+            get { return _missileAltTxt; }
             set
             {
-                _missileAlt = value;
+                _missileAltTxt = value;
                 OnPropertyChanged();
             }
         }
+
 
 
         private GraphicsOverlayCollection? _graphicsOverlays;
@@ -110,15 +112,14 @@ namespace DisplayAScene
         }
         public Scene scene;
         public Scene myBodyView;
-        public string MissileAltTxt { get; set; }
         private async Task SetupScene()
         {
             // Create a new scene with an imagery basemap.
-             scene = new Scene(BasemapStyle.OSMHybrid);
-             myBodyView = new Scene(BasemapStyle.OSMHybrid);
+            scene = new Scene(BasemapStyle.OSMHybrid);
+            myBodyView = new Scene(BasemapStyle.OSMHybrid);
             SceneView = new SceneView();
-            this.MissileAlt = 0.0;
-            this.MissileAltTxt = MissileAlt.ToString();
+ 
+            MissileAltTxt = "123";
             InitializeSceneView();
             // Create a file path to the scene package or scene layer package.
             string scenePath = @"C:\Users\urika\OneDrive\מסמכים\ArcGIS\Projects\Med2\Med2.mspk";
@@ -137,9 +138,6 @@ namespace DisplayAScene
                     // Set the view model "Scene" property.
                     this.Scene = scene;
                     this.MyBodyView = scene;
-
-
-                    SetupCamera(25, 35, 10000, 0, -20, 0);
 
 
                     Console.WriteLine("Scene setup completed successfully.");
@@ -221,24 +219,31 @@ namespace DisplayAScene
 
         }
         public void InitializeSceneView()
-         {
+        {
             if (SceneView != null)
             {
                 SceneView.Scene = MyBodyView;
             }
         }
 
-        private void SetupCamera(double latitude,double longitude,double altitude, double heading,double pitch,double roll)
+        async private void SetupCamera()
         {
 
-            // Create a new Camera instance with the specified parameters
-            Camera camera = new Camera(latitude, longitude, altitude, heading, pitch, roll);
+            // Change the scene's point of view
+            double newLatitude = ((DataStore.Trajectory[0].Latitude + DataStore.Trajectory[DataStore.Trajectory.Count - 1].Latitude) / 2.0);
+            double newLongitude = (DataStore.Trajectory[0].Longitude + DataStore.Trajectory[DataStore.Trajectory.Count - 1].Longitude) / 2.0;
+            double newAltitude = 600000.0;
 
-            // Set the SceneView's Camera property to the new Camera instance
-            //if (SceneView != null)
-            //{
-                SceneView.SetViewpointCamera(camera);
-            //}
+            // Create a new Camera instance with the specified parameters
+            //Camera camera = new Camera(newLatitude, newLongitude, newAltitude, 0, 70, 0); // Heading = 0 (North), Pitch = 70, Roll = 0
+
+            // Create the OrbitGeoElementCameraController to follow a specific point
+            MapPoint targetPoint = new MapPoint(newLongitude, newLatitude, 200000, SpatialReferences.Wgs84);
+            MapPoint cameraPoint = new MapPoint(newLongitude, newLatitude - 20, 100000, SpatialReferences.Wgs84);
+            CameraController cameraController = new OrbitLocationCameraController(targetPoint, cameraPoint);
+            this.SceneView.CameraController = cameraController;
+            OnPropertyChanged();
+
         }
 
 
@@ -280,23 +285,7 @@ namespace DisplayAScene
                     polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.FromArgb(128, System.Drawing.Color.Red), 6);
                     CreateGraphics(polylineGraphic);
                 }
-                // Add blue circle markers at each data point
-                foreach (var point in DataStore.Trajectory)
-                {
-                    if (point.Altitude  == 87.257)
-                    {
-                        AddPointToScene(point.Latitude, point.Longitude, point.Altitude * 1000.0, "Seperation");
-                        break;
-                    }
-                }
-                foreach (var point in DataStore.Trajectory)
-                {
-                    if (point.Altitude == 400)
-                    {
-                        AddPointToScene(point.Latitude, point.Longitude, point.Altitude * 1000.0, "Apogea 400 km");
-                        break;
-                    }
-                }
+
 
 
                 Console.WriteLine("Trajectory added successfully.");
@@ -372,7 +361,7 @@ namespace DisplayAScene
         public Graphic missileGraphic;
         // Camera controller for centering the camera on the missile
         private OrbitGeoElementCameraController _orbitCameraController;
-        private Camera _newCameraController; 
+        private Camera _newCameraController;
 
         private void AddPointToScene(double latitude, double longitude, double altitude, string input)
         {
@@ -425,14 +414,14 @@ namespace DisplayAScene
             }
         }
 
-        
+        public Graphic ballGraphic;
         public async Task GoNextPt(int ind)
         {
             RemoveGraphic(missileGraphic);
+            RemoveGraphic(ballGraphic);
             LoadTrajectoryData();
             try
             {
-                MissileAlt = DataStore.Trajectory[ind].Altitude;
                 missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri("C:\\Work\\display-a-scene\\3D Objects\\singleX.obj"), 1.0);
 
                 double latitude = DataStore.Trajectory[ind].Latitude;
@@ -447,7 +436,21 @@ namespace DisplayAScene
                 missileGraphic = new Graphic(new MapPoint(longitude, latitude, altitude * 1000, SpatialReferences.Wgs84), missileSymbol);
                 CreateGraphics(missileGraphic);
 
-                
+                // Create a point geometry
+                MapPoint point = new MapPoint(longitude, latitude, altitude * 1000.0, SpatialReferences.Wgs84);
+
+                // Create a symbol for the point
+                SimpleMarkerSymbol pointSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbolStyle.Circle, System.Drawing.Color.Red, 15);
+
+                // Create a graphic for the point
+                ballGraphic = new Graphic(point, pointSymbol);
+
+                if (this.SceneView != null)
+                {
+                    // Add the point graphic to the graphics overlay
+                    CreateGraphics(ballGraphic);
+                }
+
 
             }
             catch (Exception ex)
@@ -461,10 +464,13 @@ namespace DisplayAScene
         public async Task GoThroughTrajectory()
         {
 
+
+
             for (int i = 0; i < DataStore.Trajectory.Count; i++)
             {
                 await GoNextPt(i);
-                this.MissileAltTxt = MissileAlt.ToString();
+                MissileAltTxt = DataStore.Trajectory[i].Altitude.ToString();
+                RemoveGraphic(ballGraphic);
                 // Create the orbit camera controller to follow the missile
                 _orbitCameraController = new OrbitGeoElementCameraController(missileGraphic, 15000.0)
                 {
@@ -477,15 +483,15 @@ namespace DisplayAScene
                 {
                     this.SceneView.CameraController = _orbitCameraController;
                 }
-                    // if (DataStore.Trajectory[i].Altitude == 87.257)
-                    //{
-                    //    AddPointToScene(DataStore.Trajectory[i].Latitude, DataStore.Trajectory[i].Longitude, DataStore.Trajectory[i].Altitude * 1000.0, "Seperation");
-                    //}
+                // if (DataStore.Trajectory[i].Altitude == 87.257)
+                //{
+                //    AddPointToScene(DataStore.Trajectory[i].Latitude, DataStore.Trajectory[i].Longitude, DataStore.Trajectory[i].Altitude * 1000.0, "Seperation");
+                //}
 
-                    if (DataStore.Trajectory[i].Altitude == 400)
-                    {
-                        AddPointToScene(DataStore.Trajectory[i].Latitude, DataStore.Trajectory[i].Longitude, DataStore.Trajectory[i].Altitude * 1000.0, "Apogea 400 km");
-                    }
+                //if (DataStore.Trajectory[i].Altitude == 400)
+                //{
+                //    AddPointToScene(DataStore.Trajectory[i].Latitude, DataStore.Trajectory[i].Longitude, DataStore.Trajectory[i].Altitude * 1000.0, "Apogea 400 km");
+                //}
 
 
                 // Use Task.Delay instead of Thread.Sleep to avoid blocking the main thread
@@ -496,27 +502,30 @@ namespace DisplayAScene
 
         public async Task GoThroughTrajectoryBall()
         {
+            SetupCamera();
 
             for (int i = 0; i < DataStore.Trajectory.Count; i++)
             {
                 await GoNextPt(i);
 
-                // Create the orbit camera controller to follow the missile
-                _newCamera = new Camera(25, 35, 10000, 0, -20, 0);
+                var currentPoint = DataStore.Trajectory[i];
+
+                // Add blue circle markers at each data point
+
+                if (currentPoint.Altitude == 87.0)
                 {
-                    //CameraPitchOffset = 90.0,
-                    //CameraHeadingOffset = 90.0,
-                };
-                //this.MyBodyView.InitialViewpoint = _orbitCameraController;
-                // Set the CameraController on the SceneView instead of the Scene
-                if (this.SceneView != null)
+                    AddPointToScene(currentPoint.Latitude, currentPoint.Longitude, currentPoint.Altitude * 1000.0, "Seperation");
+
+                }
+
+                if (currentPoint.Altitude == 400)
                 {
-                    this.SceneView.Camera = _newCamera;
+                    AddPointToScene(currentPoint.Latitude, currentPoint.Longitude, currentPoint.Altitude * 1000.0, "Apogea 400 km");
+
                 }
 
                 // Use Task.Delay instead of Thread.Sleep to avoid blocking the main thread
                 await Task.Delay(100);
-
             }
         }
 
