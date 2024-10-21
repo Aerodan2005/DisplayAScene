@@ -469,8 +469,23 @@ namespace DisplayAScene
             for (int i = 0; i < DataStore.Trajectory.Count; i++)
             {
                 await GoNextPt(i);
-                MissileAltTxt = DataStore.Trajectory[i].Altitude.ToString();
+                MissileAltTxt = DataStore.Trajectory[i].Altitude.ToString()  + " km";
                 RemoveGraphic(ballGraphic);
+
+                // Change the scene's point of view
+                double newLatitude = DataStore.Trajectory[i].Latitude;
+                double newLongitude =DataStore.Trajectory[i].Longitude;
+                double newAltitude = DataStore.Trajectory[i].Altitude * 1000;
+
+                // Create a new Camera instance with the specified parameters
+                //Camera camera = new Camera(newLatitude, newLongitude, newAltitude, 0, 70, 0); // Heading = 0 (North), Pitch = 70, Roll = 0
+
+                // Create the OrbitGeoElementCameraController to follow a specific point
+                MapPoint targetPoint = new MapPoint(newLongitude, newLatitude, newAltitude, SpatialReferences.Wgs84);
+                MapPoint cameraPoint = new MapPoint(newLongitude, newLatitude - 0.1, newAltitude, SpatialReferences.Wgs84);
+                CameraController cameraController = new OrbitLocationCameraController(targetPoint, cameraPoint);
+
+
                 // Create the orbit camera controller to follow the missile
                 _orbitCameraController = new OrbitGeoElementCameraController(missileGraphic, 15000.0)
                 {
@@ -481,7 +496,7 @@ namespace DisplayAScene
                 // Set the CameraController on the SceneView instead of the Scene
                 if (this.SceneView != null)
                 {
-                    this.SceneView.CameraController = _orbitCameraController;
+                    this.SceneView.CameraController = cameraController; // _orbitCameraController;
                 }
                 // if (DataStore.Trajectory[i].Altitude == 87.257)
                 //{
