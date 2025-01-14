@@ -11,4 +11,8 @@
     <PackageReference Include="Esri.ArcGISRuntime.WPF" Version="200.4.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\DisplayAMap\DisplayAMap.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -12,6 +12,7 @@
 // limitations under the License.
 
 
+using DisplayAMap;
 using Esri.ArcGISRuntime.Data;
 using Esri.ArcGISRuntime.Geometry;
 using Esri.ArcGISRuntime.Mapping;
@@ -29,6 +30,9 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+
+// add using to the display a map namespace
+//using DisplayAMap;
 
 namespace DisplayAScene
 {
@@ -417,7 +421,7 @@ namespace DisplayAScene
         public Graphic ballGraphic;
         public async Task GoNextPt(int ind)
         {
-            RemoveGraphic(missileGraphic);
+            //RemoveGraphic(missileGraphic);
             RemoveGraphic(ballGraphic);
             LoadTrajectoryData();
             try
@@ -432,7 +436,7 @@ namespace DisplayAScene
                 missileSymbol.Pitch = DataStore.Trajectory[ind].Pitch + ThetaGeneral;
                 missileSymbol.Roll = DataStore.Trajectory[ind].Roll;
 
-                // Create a graphic using the plane symbol.
+                // Create a graphic using the missile symbol.
                 missileGraphic = new Graphic(new MapPoint(longitude, latitude, altitude * 1000, SpatialReferences.Wgs84), missileSymbol);
                 CreateGraphics(missileGraphic);
 
@@ -498,15 +502,6 @@ namespace DisplayAScene
                 {
                     this.SceneView.CameraController = cameraController; // _orbitCameraController;
                 }
-                // if (DataStore.Trajectory[i].Altitude == 87.257)
-                //{
-                //    AddPointToScene(DataStore.Trajectory[i].Latitude, DataStore.Trajectory[i].Longitude, DataStore.Trajectory[i].Altitude * 1000.0, "Seperation");
-                //}
-
-                //if (DataStore.Trajectory[i].Altitude == 400)
-                //{
-                //    AddPointToScene(DataStore.Trajectory[i].Latitude, DataStore.Trajectory[i].Longitude, DataStore.Trajectory[i].Altitude * 1000.0, "Apogea 400 km");
-                //}
 
 
                 // Use Task.Delay instead of Thread.Sleep to avoid blocking the main thread
@@ -515,7 +510,7 @@ namespace DisplayAScene
             }
         }
 
-        public async Task GoThroughTrajectoryBall()
+        public async Task GoThroughTrajectoryBall(MapViewModel mapViewModel)
         {
             SetupCamera();
 
@@ -526,18 +521,19 @@ namespace DisplayAScene
                 var currentPoint = DataStore.Trajectory[i];
 
                 // Add blue circle markers at each data point
-
                 if (currentPoint.Altitude == 87.0)
                 {
                     AddPointToScene(currentPoint.Latitude, currentPoint.Longitude, currentPoint.Altitude * 1000.0, "Seperation");
-
                 }
 
                 if (currentPoint.Altitude == 400)
                 {
                     AddPointToScene(currentPoint.Latitude, currentPoint.Longitude, currentPoint.Altitude * 1000.0, "Apogea 400 km");
-
                 }
+
+                Esri.ArcGISRuntime.Geometry.MapPoint point = new Esri.ArcGISRuntime.Geometry.MapPoint(currentPoint.Longitude, currentPoint.Latitude);
+
+                mapViewModel.AddTrajectoryToMap(point);
 
                 // Use Task.Delay instead of Thread.Sleep to avoid blocking the main thread
                 await Task.Delay(100);
