@@ -421,7 +421,7 @@ namespace DisplayAScene
         public Graphic ballGraphic;
         public async Task GoNextPt(int ind)
         {
-            //RemoveGraphic(missileGraphic);
+            RemoveGraphic(missileGraphic);
             RemoveGraphic(ballGraphic);
             LoadTrajectoryData();
             try
@@ -475,6 +475,7 @@ namespace DisplayAScene
                 await GoNextPt(i);
                 MissileAltTxt = DataStore.Trajectory[i].Altitude.ToString()  + " km";
                 RemoveGraphic(ballGraphic);
+
 
                 // Change the scene's point of view
                 double newLatitude = DataStore.Trajectory[i].Latitude;
