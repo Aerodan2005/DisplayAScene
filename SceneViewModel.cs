@@ -397,9 +397,11 @@ namespace DisplayAScene
         // Modify the AddMissileToScene method to include translation
         private async Task AddMissileToScene(double latitude, double longitude, double altitude, double Theta, double Psi, double Phi)
         {
+            string obj3d = System.IO.Path.Combine(AppConfigSvc.appCfg.baseDataFolder, "3DModel","singleX.obj");
+
             try
             {
-                missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri("C:\\Work\\display-a-scene\\3D Objects\\singleX.obj"), 1.0);
+                missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri(obj3d), 1.0);
                 missileSymbol.Heading = Psi;
                 missileSymbol.Pitch = Theta;
                 missileSymbol.Roll = Phi;
@@ -427,7 +429,9 @@ namespace DisplayAScene
             LoadTrajectoryData();
             try
             {
-                missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri("C:\\Work\\display-a-scene\\3D Objects\\singleX.obj"), 1.0);
+                string obj3d = System.IO.Path.Combine(AppConfigSvc.appCfg.baseDataFolder, "3DModel","singleX.obj");
+
+                missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri(obj3d), 1.0);
 
                 double latitude = DataStore.Trajectory[ind].Latitude;
                 double longitude = DataStore.Trajectory[ind].Longitude;
