@@ -49,7 +49,7 @@ new TrajectoryPoint(35.67 ,  50.905, 37.643 ),
 new TrajectoryPoint(35.651 , 50.746, 50.133 ),
 new TrajectoryPoint(35.633 , 50.587, 62.574 ),
 new TrajectoryPoint(35.615 , 50.428, 74.953 ),
-new TrajectoryPoint(35.596 , 50.27, 87.0 ),  // uri
+new TrajectoryPoint(35.596 , 50.27, 87.0 ),  // uri 
 new TrajectoryPoint(35.578 , 50.111, 99.476 ),
 new TrajectoryPoint(35.56 ,  49.952, 111.6  ),
 new TrajectoryPoint(35.541 , 49.793, 123.61 ),
