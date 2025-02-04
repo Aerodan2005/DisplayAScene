@@ -20,6 +20,7 @@ using Esri.ArcGISRuntime.Mapping;
 using Esri.ArcGISRuntime.Symbology;
 using Esri.ArcGISRuntime.UI;
 using Esri.ArcGISRuntime.UI.Controls;
+using MetisDB;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -126,7 +127,7 @@ namespace DisplayAScene
             MissileAltTxt = "123";
             InitializeSceneView();
             // Create a file path to the scene package or scene layer package.
-            string scenePath = @"C:\Users\urika\OneDrive\מסמכים\ArcGIS\Projects\Med2\Med2.mspk";
+            string scenePath = System.IO.Path.Combine(AppConfigSvc.appCfg.baseDataFolder, "Maps","MED2.mspk");
 
             try
             {
@@ -161,7 +162,7 @@ namespace DisplayAScene
             {
 
                 // Load the first TPK file
-                string tpkPath1 = @"C:\Work\TilePackages\world_imagery_tpk.tpk";
+                string tpkPath1 = System.IO.Path.Combine(AppConfigSvc.appCfg.baseDataFolder, "Maps","world_imagery_tpk.tpk");
                 if (!File.Exists(tpkPath1))
                 {
                     throw new FileNotFoundException("TPK file not found.", tpkPath1);
@@ -170,7 +171,7 @@ namespace DisplayAScene
                 //await tiledLayer1.LoadAsync();
 
                 // Load the second TPK file
-                string tpkPath2 = @"C:\Work\TilePackages\world_boundaries_and_places_4-11.tpk";
+                string tpkPath2 = System.IO.Path.Combine(AppConfigSvc.appCfg.baseDataFolder, "Maps","world_boundaries_and_places_4-11.tpk");
                 if (!File.Exists(tpkPath2))
                 {
                     throw new FileNotFoundException("TPK file not found.", tpkPath2);
