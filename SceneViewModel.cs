@@ -447,63 +447,106 @@ namespace DisplayAScene
                 OnPropertyChanged();
             }
         }
-
-        // Method to set missile information from external source (e.g., MetisDB)
-        public void SetMissileInfo(int missileId, string missilePart, string modelPath)
+        
+        private string _selectedMissileName = string.Empty;
+        public string SelectedMissileName
         {
-            SelectedMissileId = missileId;
-            SelectedMissilePart = missilePart;
-            if (!string.IsNullOrEmpty(modelPath))
+            get { return _selectedMissileName; }
+            set
             {
-                MissileModelPath = modelPath;
+                _selectedMissileName = value;
+                OnPropertyChanged();
             }
         }
 
-        private async Task AddPointToScene(double latitude, double longitude, double altitude, string input, string modelPath = null)
+        // Properties and fields for camera position and orientation
+        private double _cameraX;
+        private double _cameraY;
+        private double _cameraZ;
+        private double _cameraHeading;
+        private double _cameraPitch;
+        private double _cameraRoll;
+
+        // Field to store missile position geometry
+        private MapPoint missile_geom;
+        
+        // Task delegate for loading the scene after initialization
+        private Task _loadSceneTask;
+        
+        // Method to set missile information from external source (e.g., MetisDB)
+        public void SetMissileInfo(int missileId, string missilePart, string modelPath, string missileName)
         {
-            // Create a point geometry
-            MapPoint point = new MapPoint(longitude, latitude, altitude, SpatialReferences.Wgs84);
-
-            if (!string.IsNullOrEmpty(modelPath))
+            try
             {
-                try
+                SelectedMissileId = missileId;
+                SelectedMissilePart = missilePart;
+                SelectedMissileName = missileName;
+                
+                if (!string.IsNullOrEmpty(modelPath) && File.Exists(modelPath))
                 {
-                    // Create a 3D model symbol using the provided model path
-                    ModelSceneSymbol pointModelSymbol = await ModelSceneSymbol.CreateAsync(new Uri(modelPath), 1.0);
+                    // Ensure the model path is in a valid format for URI creation
+                    MissileModelPath = new Uri(modelPath).ToString();
+                    System.Diagnostics.Debug.WriteLine($"SceneViewModel: Set missile info - ID={missileId}, Part={missilePart}, Name={missileName}, Path={modelPath}");
                     
-                    // Create a graphic using the model symbol
-                    Graphic modelGraphic = new Graphic(point, pointModelSymbol);
-                    
-                    // Add the model graphic to the graphics overlay
-                    CreateGraphics(modelGraphic);
+                    // If we've already loaded the scene, update the missile model
+                    if (SceneView?.GraphicsOverlays != null && missile_geom != null)
+                    {
+                        UpdateMissileModel();
+                    }
                 }
-                catch (Exception ex)
+                else
                 {
-                    // Fallback to simple marker if model loading fails
-                    Console.WriteLine($"Failed to load model: {ex.Message}");
-                    SimpleMarkerSymbol pointSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbolStyle.Circle, System.Drawing.Color.Blue, 10);
-                    Graphic pointGraphic = new Graphic(point, pointSymbol);
-                    CreateGraphics(pointGraphic);
+                    System.Diagnostics.Debug.WriteLine($"SceneViewModel: Invalid model path: {modelPath}");
                 }
             }
-            else
+            catch (Exception ex)
             {
-                // Create a symbol for the point
-                SimpleMarkerSymbol pointSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbolStyle.Circle, System.Drawing.Color.Blue, 10);
-
-                // Create a graphic for the point
-                Graphic pointGraphic = new Graphic(point, pointSymbol);
-
-                // Add the point graphic to the graphics overlay
-                CreateGraphics(pointGraphic);
+                System.Diagnostics.Debug.WriteLine($"SceneViewModel: Error setting missile info: {ex.Message}");
             }
-
-            // Display the input above the point
-            if (!string.IsNullOrEmpty(input))
+        }
+        
+        private void UpdateMissileModel()
+        {
+            try
             {
-                TextSymbol textSymbol = new TextSymbol(input, System.Drawing.Color.Blue, 24, Esri.ArcGISRuntime.Symbology.HorizontalAlignment.Left, Esri.ArcGISRuntime.Symbology.VerticalAlignment.Top);
-                Graphic textGraphic = new Graphic(point, textSymbol);
-                CreateGraphics(textGraphic);
+                // Remove existing missile graphic
+                if (missileGraphic != null && SceneView?.GraphicsOverlays?.FirstOrDefault()?.Graphics.Contains(missileGraphic) == true)
+                {
+                    SceneView.GraphicsOverlays.FirstOrDefault()?.Graphics.Remove(missileGraphic);
+                }
+                
+                // Schedule task to update the missile model asynchronously
+                UpdateMissileModelAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"SceneViewModel: Error updating missile model: {ex.Message}");
+            }
+        }
+        
+        private async void UpdateMissileModelAsync()
+        {
+            try
+            {
+                // Create new missile symbol using the updated path
+                missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri(MissileModelPath));
+                missileSymbol.AnchorPosition = SceneSymbolAnchorPosition.Center;
+                missileSymbol.Height = 10;
+                missileSymbol.Width = 10;
+                missileSymbol.Depth = 10;
+                
+                // Create and add new missile graphic
+                if (missile_geom != null)
+                {
+                    missileGraphic = new Graphic(missile_geom, missileSymbol);
+                    SceneView?.GraphicsOverlays?.FirstOrDefault()?.Graphics.Add(missileGraphic);
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"SceneViewModel: Updated missile model with path: {MissileModelPath}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"SceneViewModel: Error updating missile model async: {ex.Message}");
             }
         }
 
@@ -528,6 +571,12 @@ namespace DisplayAScene
                     SelectedMissileId = MissileModelProvider.SelectedMissileId;
                     SelectedMissilePart = MissileModelProvider.SelectedMissilePart;
                     Console.WriteLine($"Using missile model: ID={SelectedMissileId}, Part={SelectedMissilePart}, Path={MissileModelPath}");
+                    
+                    // If we've already loaded the scene, update the missile model
+                    if (SceneView?.GraphicsOverlays != null && missile_geom != null)
+                    {
+                        UpdateMissileModel();
+                    }
                 }
 
                 try
@@ -539,13 +588,15 @@ namespace DisplayAScene
                     missileSymbol.Roll = DataStore.Trajectory[ind].Roll;
 
                     // Create a graphic using the missile symbol.
-                    missileGraphic = new Graphic(new MapPoint(longitude, latitude, altitude * 1000, SpatialReferences.Wgs84), missileSymbol);
+                    MapPoint point = new MapPoint(longitude, latitude, altitude * 1000, SpatialReferences.Wgs84);
+                    missile_geom = point;
+                    missileGraphic = new Graphic(missile_geom, missileSymbol);
                     CreateGraphics(missileGraphic);
 
                     // Add a ball (point) at the same location
-                    MapPoint point = new MapPoint(longitude, latitude, altitude * 1000.0, SpatialReferences.Wgs84);
+                    MapPoint point2 = new MapPoint(longitude, latitude, altitude * 1000.0, SpatialReferences.Wgs84);
                     SimpleMarkerSymbol pointSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbolStyle.Circle, System.Drawing.Color.Red, 15);
-                    ballGraphic = new Graphic(point, pointSymbol);
+                    ballGraphic = new Graphic(point2, pointSymbol);
                     CreateGraphics(ballGraphic);
                 }
                 catch (Exception ex)
@@ -675,9 +726,57 @@ namespace DisplayAScene
             return meters;
         }
 
+        // Method to add a point to the scene with an optional model
+        private async Task AddPointToScene(double latitude, double longitude, double altitude, string input, string modelPath = null)
+        {
+            // Create a point geometry
+            MapPoint point = new MapPoint(longitude, latitude, altitude, SpatialReferences.Wgs84);
+            
+            // Store this point for missile positioning
+            missile_geom = point;
 
+            if (!string.IsNullOrEmpty(modelPath))
+            {
+                try
+                {
+                    // Create a 3D model symbol using the provided model path
+                    ModelSceneSymbol pointModelSymbol = await ModelSceneSymbol.CreateAsync(new Uri(modelPath), 1.0);
+                    
+                    // Create a graphic using the model symbol
+                    Graphic modelGraphic = new Graphic(point, pointModelSymbol);
+                    
+                    // Add the model graphic to the graphics overlay
+                    CreateGraphics(modelGraphic);
+                }
+                catch (Exception ex)
+                {
+                    // Fallback to simple marker if model loading fails
+                    Console.WriteLine($"Failed to load model: {ex.Message}");
+                    SimpleMarkerSymbol pointSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbolStyle.Circle, System.Drawing.Color.Blue, 10);
+                    Graphic pointGraphic = new Graphic(point, pointSymbol);
+                    CreateGraphics(pointGraphic);
+                }
+            }
+            else
+            {
+                // Create a symbol for the point
+                SimpleMarkerSymbol pointSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbolStyle.Circle, System.Drawing.Color.Blue, 10);
 
+                // Create a graphic for the point
+                Graphic pointGraphic = new Graphic(point, pointSymbol);
 
+                // Add the point graphic to the graphics overlay
+                CreateGraphics(pointGraphic);
+            }
+
+            // Display the input above the point
+            if (!string.IsNullOrEmpty(input))
+            {
+                TextSymbol textSymbol = new TextSymbol(input, System.Drawing.Color.Blue, 24, Esri.ArcGISRuntime.Symbology.HorizontalAlignment.Left, Esri.ArcGISRuntime.Symbology.VerticalAlignment.Top);
+                Graphic textGraphic = new Graphic(point, textSymbol);
+                CreateGraphics(textGraphic);
+            }
+        }
     }
 
 
