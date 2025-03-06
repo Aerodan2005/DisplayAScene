@@ -405,7 +405,7 @@ namespace DisplayAScene
         // Camera controller for centering the camera on the missile
         private OrbitGeoElementCameraController _orbitCameraController;
 
-        private string _missileModelPath = "C:\\Work\\display-a-scene\\3D Objects\\singleX.obj"; // Default path
+        private string _missileModelPath = "C:\\Users\\urika\\OneDrive\\THView\\dataroot\\3DModel\\singleX.obj"; // Default path
         public string MissileModelPath
         {
             get 
