@@ -300,6 +300,9 @@ namespace DisplayAScene
 
         public void LoadTrajectoryData()
         {
+            // This method is called to load trajectory data into the scene
+            // We'll initialize map components if available
+            // Note: MapViewModel is from the CompositeViewModel, not directly accessible here
         }
         public double ThetaGeneral = 90.0;
         public double PsiGeneral = -90.0;
