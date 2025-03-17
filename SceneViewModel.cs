@@ -227,14 +227,24 @@ namespace DisplayAScene
                 // Create a new basemap with the first tiled layer
                 var basemap = new Basemap(tiledLayer1);
 
-                // Set the basemap to the map
-                this.Scene.Basemap = basemap;
-                this.MyBodyView.Basemap = basemap;
-
-                //Add the second tiled layer as an operational layer
-                this.Scene.OperationalLayers.Add(tiledLayer2);
-                //this.MyBodyView.OperationalLayers.Add(tiledLayer2);
-
+                // Set the basemap to the map - with null checks
+                if (this.Scene != null)
+                {
+                    this.Scene.Basemap = basemap;
+                }
+                
+                if (this.MyBodyView != null)
+                {
+                    this.MyBodyView.Basemap = basemap;
+                    
+                    // Add the second tiled layer as an operational layer
+                    if (this.Scene?.OperationalLayers != null)
+                    {
+                        this.Scene.OperationalLayers.Add(tiledLayer2);
+                    }
+                    //this.MyBodyView.OperationalLayers.Add(tiledLayer2);
+                }
+                
                 // Add the vector tiled layer as an operational layer
                 //this.Map.OperationalLayers.Add(vectorTiledLayer);
 
@@ -261,7 +271,7 @@ namespace DisplayAScene
         }
         public void InitializeSceneView()
         {
-            if (SceneView != null)
+            if (SceneView != null && MyBodyView != null)
             {
                 SceneView.Scene = MyBodyView;
             }
