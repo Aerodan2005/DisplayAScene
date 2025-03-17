@@ -51,6 +51,9 @@ namespace DisplayAScene
             missileGraphic = new Graphic();
             ballGraphic = new Graphic();
 
+            // Clear any default trajectory data
+            DataStore.Trajectory.Clear();
+            
             // Disable model provider to prevent interference with MetisDB
             MissileModelProvider.Disable();
             
@@ -403,13 +406,25 @@ namespace DisplayAScene
         // Method to clear all graphics
         public void ClearAllGraphics()
         {
-            if (GraphicsOverlays != null)
+            try
             {
-                foreach (var overlay in GraphicsOverlays)
+                // First clear any existing trajectory data
+                DataStore.Trajectory.Clear();
+                
+                // Then clear all graphics overlays
+                if (GraphicsOverlays != null)
                 {
-                    overlay.Graphics.Clear();
+                    foreach (var overlay in GraphicsOverlays)
+                    {
+                        overlay.Graphics.Clear();
+                    }
                 }
-                OnPropertyChanged();
+                
+                Console.WriteLine("All graphics and trajectory data cleared from SceneViewModel");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error clearing graphics: {ex.Message}");
             }
         }
         public Graphic missileGraphic;
