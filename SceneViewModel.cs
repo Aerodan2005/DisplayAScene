@@ -51,6 +51,17 @@ namespace DisplayAScene
             missileGraphic = new Graphic();
             ballGraphic = new Graphic();
 
+            // Initialize GraphicsOverlays
+            GraphicsOverlays = new GraphicsOverlayCollection();
+            
+            // Create a default graphics overlay for trajectory
+            GraphicsOverlay trajectoryOverlay = new GraphicsOverlay();
+            trajectoryOverlay.SceneProperties.SurfacePlacement = SurfacePlacement.Relative;
+            trajectoryOverlay.IsVisible = true;
+            GraphicsOverlays.Add(trajectoryOverlay);
+            
+            Console.WriteLine("SceneViewModel initialized with graphics overlay");
+            
             // Clear any default trajectory data
             DataStore.Trajectory.Clear();
             
@@ -283,7 +294,7 @@ namespace DisplayAScene
             }
         }
 
-        async private void SetupCamera()
+        async public void SetupCamera()
         {
             try
             {
@@ -292,6 +303,7 @@ namespace DisplayAScene
                 double maxLongitude = double.MinValue;
                 double minLatitude = double.MaxValue;
                 double maxLatitude = double.MinValue;
+                double maxAltitude = 0;
                 
                 // Get the bounds of the trajectory
                 foreach (var point in DataStore.Trajectory)
@@ -300,7 +312,10 @@ namespace DisplayAScene
                     maxLongitude = Math.Max(maxLongitude, point.Longitude);
                     minLatitude = Math.Min(minLatitude, point.Latitude);
                     maxLatitude = Math.Max(maxLatitude, point.Latitude);
+                    maxAltitude = Math.Max(maxAltitude, point.Altitude);
                 }
+                
+                Console.WriteLine($"Trajectory bounds: Lon({minLongitude} to {maxLongitude}), Lat({minLatitude} to {maxLatitude}), MaxAlt: {maxAltitude}km");
                 
                 // Calculate center point
                 double centerLatitude = (minLatitude + maxLatitude) / 2.0;
@@ -310,29 +325,38 @@ namespace DisplayAScene
                 double longitudeSpan = Math.Abs(maxLongitude - minLongitude);
                 double latitudeSpan = Math.Abs(maxLatitude - minLatitude);
                 
-                // Ensure minimum span for visibility
-                longitudeSpan = Math.Max(longitudeSpan, 2.0);
-                latitudeSpan = Math.Max(latitudeSpan, 2.0);
+                // Add a buffer to ensure full trajectory visibility (20% buffer)
+                double bufferFactor = 0.2;
+                minLongitude -= longitudeSpan * bufferFactor;
+                maxLongitude += longitudeSpan * bufferFactor;
                 
-                // Add a modest buffer to ensure full trajectory is visible
-                longitudeSpan *= 1.1;
-                latitudeSpan *= 1.1;
+                // Recalculate center and span with buffer
+                centerLongitude = (minLongitude + maxLongitude) / 2.0;
+                longitudeSpan = Math.Abs(maxLongitude - minLongitude);
                 
-                // Set a reasonable altitude - not too far out
-                double altitude = 300000; // 300km altitude
+                // For ballistic trajectories, we need a good side view
+                // Set altitude based on max altitude and span to ensure the entire trajectory is visible
+                double altitude = Math.Max(longitudeSpan * 111000 * 1.5, maxAltitude * 1000 * 2.5);
                 
-                // Position camera based on trajectory orientation (westward)
-                // Shift east to see the whole trajectory, but keep moderate distance
-                double cameraLong = maxLongitude + (longitudeSpan * 0.1);
+                // Ensure minimum altitude for good visibility
+                altitude = Math.Max(altitude, 500000); // At least 500km altitude
                 
-                // Create camera point keeping north as up orientation (standard)
-                Camera camera = new Camera(centerLatitude, cameraLong, altitude, 270, 30, 0);
-                // Heading 270 points west, pitch 30 looks down at angle, roll 0 keeps north up
+                // For westward trajectories, position the camera to the east and looking west
+                // This gives us a side view of the ballistic arc
+                double cameraLongitude = maxLongitude + (longitudeSpan * 0.1);
+                double cameraLatitude = centerLatitude;
+                
+                // Create camera with heading 270 (looking west across the trajectory)
+                // For ballistic trajectory, use a smaller pitch angle to see the arc better
+                Camera camera = new Camera(cameraLatitude, cameraLongitude, altitude, 270, 30, 0);
+                // Heading 270 looks west, pitch 30 looks down at a 30-degree angle
                 
                 // Apply the camera to the scene view
                 this.SceneView.SetViewpointCamera(camera);
                 
-                Console.WriteLine($"Camera setup complete at altitude: {altitude}m");
+                Console.WriteLine($"Camera setup for ballistic trajectory - viewing from east to west at altitude: {altitude}m");
+                Console.WriteLine($"Camera position: Lat {cameraLatitude}, Long {cameraLongitude}");
+                Console.WriteLine($"Trajectory spans: Long {minLongitude} to {maxLongitude}, MaxAlt: {maxAltitude}km");
                 
                 OnPropertyChanged();
             }
@@ -341,73 +365,221 @@ namespace DisplayAScene
                 Console.WriteLine($"Error in SetupCamera: {ex.Message}");
             }
         }
-
         public void LoadTrajectoryData()
         {
-            // This method is called to load trajectory data into the scene
-            // We'll initialize map components if available
-            // Note: MapViewModel is from the CompositeViewModel, not directly accessible here
-        }
-        public double ThetaGeneral = 90.0;
-        public double PsiGeneral = -90.0;
-        public double PhiGeneral = 10.0;
-        public async Task AddTrajectoryToScene()
-        {
-            // Check if the scene is null
-            if (this.Scene == null)
-            {
-                Console.WriteLine("Scene is null. Cannot add trajectory.");
-                return;
-            }
-            double Theta = 90.0;
-            double Psi = -90.0;
-            double Phi = 10.0;
             try
             {
-                // Load the trajectory data
-                PolylineBuilder polylineBuilder = new PolylineBuilder(SpatialReferences.Wgs84);
-
-                foreach (var point in DataStore.Trajectory)
+                // Log the beginning of trajectory data loading
+                Console.WriteLine($"LoadTrajectoryData called with {DataStore.Trajectory.Count} trajectory points");
+                
+                // Check if we have trajectory data to load
+                if (DataStore.Trajectory == null || DataStore.Trajectory.Count < 2)
                 {
-                    polylineBuilder.AddPoint(point.Longitude, point.Latitude, point.Altitude * 1000.0);
+                    Console.WriteLine("Warning: Insufficient trajectory data to load");
+                    return;
                 }
-
-                Polyline polyline = polylineBuilder.ToGeometry();
-
-                if (polylineBuilder.Parts.Count > 0)
+                
+                // Clear any existing graphics from previous trajectories
+                Console.WriteLine("Clearing graphics overlays in LoadTrajectoryData");
+                if (GraphicsOverlays != null)
                 {
-                    // Create a polyline from the builder
-                    var polylineGraphic = new Graphic(polyline);
-                    polylineGraphic.IsVisible = true;
-                    // Change line color to blue for westward trajectory
-                    polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.FromArgb(200, System.Drawing.Color.Blue), 6);
-                    CreateGraphics(polylineGraphic);
-                    
-                    // Add point markers at start and end of trajectory
-                    var startPoint = new MapPoint(DataStore.Trajectory[0].Longitude, DataStore.Trajectory[0].Latitude, 
-                        DataStore.Trajectory[0].Altitude * 1000.0, SpatialReferences.Wgs84);
-                    var endPoint = new MapPoint(DataStore.Trajectory[DataStore.Trajectory.Count - 1].Longitude, 
-                        DataStore.Trajectory[DataStore.Trajectory.Count - 1].Latitude, 
-                        DataStore.Trajectory[DataStore.Trajectory.Count - 1].Altitude * 1000.0, SpatialReferences.Wgs84);
-                    
-                    // Marker for launch point (green)
-                    var startPointGraphic = new Graphic(startPoint);
-                    startPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
-                        System.Drawing.Color.Green, 10000, 10000, 10000, SceneSymbolAnchorPosition.Center);
-                    CreateGraphics(startPointGraphic);
-                    
-                    // Marker for impact point (red)
-                    var endPointGraphic = new Graphic(endPoint);
-                    endPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
-                        System.Drawing.Color.Red, 10000, 10000, 10000, SceneSymbolAnchorPosition.Center);
-                    CreateGraphics(endPointGraphic);
+                    foreach (var overlay in GraphicsOverlays)
+                    {
+                        overlay.Graphics.Clear();
+                        Console.WriteLine("Graphics overlay cleared");
+                    }
                 }
-
-                Console.WriteLine("Trajectory added successfully.");
+                else
+                {
+                    Console.WriteLine("Creating new graphics overlays collection");
+                    GraphicsOverlays = new GraphicsOverlayCollection();
+                }
+                
+                Console.WriteLine("Trajectory data loaded and ready for display");
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Failed to load the trajectory: " + ex.Message);
+                Console.WriteLine($"Error in LoadTrajectoryData: {ex.Message}");
+            }
+        }
+        
+        // Camera angle variables
+        public double ThetaGeneral = 90.0;
+        public double PsiGeneral = -90.0;
+        public double PhiGeneral = 10.0;
+        
+        public async Task AddTrajectoryToScene()
+        {
+            // Check if the scene is null
+            if (SceneView?.Scene == null)
+            {
+                Console.WriteLine("AddTrajectoryToScene - Scene is null, creating new scene");
+                SceneView.Scene = new Scene(BasemapStyle.ArcGISImageryStandard);
+            }
+
+            try
+            {
+                Console.WriteLine($"AddTrajectoryToScene - Loading trajectory with {DataStore.Trajectory.Count} points");
+
+                if (DataStore.Trajectory.Count < 2)
+                {
+                    Console.WriteLine("AddTrajectoryToScene - Not enough trajectory points to draw (minimum 2 required)");
+                    return;
+                }
+                else
+                {
+                    Console.WriteLine($"AddTrajectoryToScene - Processing {DataStore.Trajectory.Count} trajectory points");
+                    
+                    // Convert the list of custom trajectory points to a list of MapPoints
+                    var trajPoints = DataStore.Trajectory;
+                    var firstPoint = trajPoints[0];
+                    
+                    // Find max altitude point for highlighting
+                    double maxAltitude = 0;
+                    int maxAltitudeIndex = 0;
+                    for (int i = 0; i < DataStore.Trajectory.Count; i++)
+                    {
+                        if (DataStore.Trajectory[i].Altitude > maxAltitude)
+                        {
+                            maxAltitude = DataStore.Trajectory[i].Altitude;
+                            maxAltitudeIndex = i;
+                        }
+                    }
+                    
+                    Console.WriteLine($"AddTrajectoryToScene - Max altitude: {maxAltitude} km at point {maxAltitudeIndex}");
+                    
+                    // Check if trajectory points need sorting to ensure linear path
+                    bool requiresSorting = false;
+                    if (DataStore.Trajectory.Count > 2)
+                    {
+                        // Calculate distances from first point as a heuristic
+                        List<double> distances = new List<double>();
+                        for (int i = 0; i < trajPoints.Count; i++)
+                        {
+                            double dist = Math.Sqrt(
+                                Math.Pow(trajPoints[i].Latitude - firstPoint.Latitude, 2) + 
+                                Math.Pow(trajPoints[i].Longitude - firstPoint.Longitude, 2));
+                            distances.Add(dist);
+                        }
+                        
+                        // Check if distances are monotonically increasing (or decreasing)
+                        for (int i = 1; i < distances.Count; i++)
+                        {
+                            // If distance jumps back and forth, we need sorting
+                            if ((distances[i] > distances[i-1] && i > 1 && distances[i-1] < distances[i-2]) ||
+                                (distances[i] < distances[i-1] && i > 1 && distances[i-1] > distances[i-2]))
+                            {
+                                requiresSorting = true;
+                                Console.WriteLine($"AddTrajectoryToScene - Non-linear trajectory detected at index {i}, requires sorting");
+                                break;
+                            }
+                        }
+                        
+                        if (requiresSorting)
+                        {
+                            Console.WriteLine("AddTrajectoryToScene - Sorting trajectory points to ensure linear path...");
+                            
+                            // Sort by distance from start point as a heuristic approach
+                            // This isn't perfect but helps in many cases
+                            trajPoints = trajPoints.OrderBy(p => 
+                                Math.Sqrt(
+                                    Math.Pow(p.Latitude - firstPoint.Latitude, 2) + 
+                                    Math.Pow(p.Longitude - firstPoint.Longitude, 2))
+                            ).ToList();
+                            
+                            Console.WriteLine("AddTrajectoryToScene - Trajectory sorting complete");
+                        }
+                        else
+                        {
+                            Console.WriteLine("AddTrajectoryToScene - Trajectory appears to be properly ordered, no sorting needed");
+                        }
+                    }
+                    
+                    // Load the trajectory data
+                    PolylineBuilder polylineBuilder = new PolylineBuilder(SpatialReferences.Wgs84);
+
+                    foreach (var point in trajPoints)
+                    {
+                        polylineBuilder.AddPoint(point.Longitude, point.Latitude, point.Altitude * 1000.0);
+                    }
+
+                    Polyline polyline = polylineBuilder.ToGeometry();
+
+                    if (polylineBuilder.Parts.Count > 0)
+                    {
+                        // Create a polyline from the builder with enhanced visibility
+                        var polylineGraphic = new Graphic(polyline);
+                        polylineGraphic.IsVisible = true;
+                        
+                        // Use a more visible blue color for the trajectory
+                        polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.FromArgb(255, 0, 0, 255), 8);
+                        CreateGraphics(polylineGraphic);
+                        
+                        // Add point markers at start and end of trajectory
+                        var startPoint = new MapPoint(trajPoints[0].Longitude, trajPoints[0].Latitude, 
+                            trajPoints[0].Altitude * 1000.0, SpatialReferences.Wgs84);
+                        var endPoint = new MapPoint(trajPoints[trajPoints.Count - 1].Longitude, 
+                            trajPoints[trajPoints.Count - 1].Latitude, 
+                            trajPoints[trajPoints.Count - 1].Altitude * 1000.0, SpatialReferences.Wgs84);
+                        
+                        // Add marker for the apogee (highest point)
+                        var apogeePoint = new MapPoint(
+                            trajPoints[maxAltitudeIndex].Longitude, 
+                            trajPoints[maxAltitudeIndex].Latitude, 
+                            trajPoints[maxAltitudeIndex].Altitude * 1000.0, 
+                            SpatialReferences.Wgs84);
+                        
+                        // Marker for launch point (green)
+                        var startPointGraphic = new Graphic(startPoint);
+                        startPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
+                            System.Drawing.Color.LimeGreen, 12000, 12000, 12000, SceneSymbolAnchorPosition.Center);
+                        CreateGraphics(startPointGraphic);
+                        
+                        // Add a text label for the launch point
+                        var startTextSymbol = new TextSymbol("Launch Point", System.Drawing.Color.White, 12, 
+                            Esri.ArcGISRuntime.Symbology.HorizontalAlignment.Center, 
+                            Esri.ArcGISRuntime.Symbology.VerticalAlignment.Bottom);
+                        startTextSymbol.OffsetY = 20; // Offset to position above the point
+                        var startTextGraphic = new Graphic(startPoint, startTextSymbol);
+                        CreateGraphics(startTextGraphic);
+                        
+                        // Marker for impact point (red)
+                        var endPointGraphic = new Graphic(endPoint);
+                        endPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
+                            System.Drawing.Color.Red, 12000, 12000, 12000, SceneSymbolAnchorPosition.Center);
+                        CreateGraphics(endPointGraphic);
+                        
+                        // Add a text label for the impact point
+                        var endTextSymbol = new TextSymbol("Impact Point", System.Drawing.Color.White, 12, 
+                            Esri.ArcGISRuntime.Symbology.HorizontalAlignment.Center, 
+                            Esri.ArcGISRuntime.Symbology.VerticalAlignment.Bottom);
+                        endTextSymbol.OffsetY = 20; // Offset to position above the point
+                        var endTextGraphic = new Graphic(endPoint, endTextSymbol);
+                        CreateGraphics(endTextGraphic);
+                        
+                        // Marker for apogee point (yellow)
+                        var apogeePointGraphic = new Graphic(apogeePoint);
+                        apogeePointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
+                            System.Drawing.Color.Yellow, 10000, 10000, 10000, SceneSymbolAnchorPosition.Center);
+                        CreateGraphics(apogeePointGraphic);
+                        
+                        // Add a text label for the apogee point
+                        var apogeeTextSymbol = new TextSymbol($"Apogee ({maxAltitude:F1}km)", System.Drawing.Color.Yellow, 12, 
+                            Esri.ArcGISRuntime.Symbology.HorizontalAlignment.Center, 
+                            Esri.ArcGISRuntime.Symbology.VerticalAlignment.Bottom);
+                        apogeeTextSymbol.OffsetY = 20; // Offset to position above the point
+                        var apogeeTextGraphic = new Graphic(apogeePoint, apogeeTextSymbol);
+                        CreateGraphics(apogeeTextGraphic);
+                        
+                        Console.WriteLine("AddTrajectoryToScene - Trajectory markers added: Launch, Impact, and Apogee points");
+                    }
+
+                    Console.WriteLine("AddTrajectoryToScene - Trajectory added successfully.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("AddTrajectoryToScene - Failed to load the trajectory: " + ex.Message);
             }
         }
 
@@ -418,30 +590,32 @@ namespace DisplayAScene
             if (GraphicsOverlays == null)
             {
                 GraphicsOverlays = new GraphicsOverlayCollection();
-                // Set the SceneProperties of the GraphicsOverlay to use SurfacePlacement.Absolute
             }
 
-            // Check if there is already a GraphicsOverlay to add the Graphic to, if not, create a new one.
-
-            GraphicsOverlay TAGraphicsOverlay = new GraphicsOverlay();
-
-            if (GraphicsOverlays.Count >= 0)
+            // Get or create the graphics overlay
+            GraphicsOverlay graphicsOverlay;
+            
+            // Reuse existing overlay if available, or create a new one
+            if (GraphicsOverlays.Count > 0)
             {
-                TAGraphicsOverlay = new GraphicsOverlay();
-                GraphicsOverlays.Add(TAGraphicsOverlay);
+                graphicsOverlay = GraphicsOverlays[0];
+            }
+            else
+            {
+                graphicsOverlay = new GraphicsOverlay();
+                graphicsOverlay.SceneProperties.SurfacePlacement = SurfacePlacement.Relative;
+                graphicsOverlay.IsVisible = true;
+                GraphicsOverlays.Add(graphicsOverlay);
+                Console.WriteLine("Created new graphics overlay");
             }
 
-
-            // Add the anyGraphic to the selected or new GraphicsOverlay
+            // Add the graphic to the overlay
             if (anyGraphic != null)
             {
-                TAGraphicsOverlay.Graphics.Add(anyGraphic);
-                TAGraphicsOverlay.IsVisible = true;
-                TAGraphicsOverlay.SceneProperties.SurfacePlacement = SurfacePlacement.Relative;
-
+                graphicsOverlay.Graphics.Add(anyGraphic);
+                Console.WriteLine($"Added graphic to overlay. Total graphics: {graphicsOverlay.Graphics.Count}");
                 OnPropertyChanged();
             }
-
         }
         //// Set the view model "Scene" property.
         //this.Scene = scene;
@@ -640,7 +814,6 @@ namespace DisplayAScene
         {
             RemoveGraphic(missileGraphic);
             RemoveGraphic(ballGraphic);
-            LoadTrajectoryData();
             try
             {
                 double latitude = DataStore.Trajectory[ind].Latitude;
@@ -775,16 +948,7 @@ namespace DisplayAScene
 
                 var currentPoint = DataStore.Trajectory[i];
 
-                // Add blue circle markers at each data point
-                if (currentPoint.Altitude == 87.0)
-                {
-                    await AddPointToScene(currentPoint.Latitude, currentPoint.Longitude, currentPoint.Altitude * 1000.0, "Seperation");
-                }
 
-                if (currentPoint.Altitude == 400)
-                {
-                    await AddPointToScene(currentPoint.Latitude, currentPoint.Longitude, currentPoint.Altitude * 1000.0, "Apogea 400 km");
-                }
 
                 Esri.ArcGISRuntime.Geometry.MapPoint point = new Esri.ArcGISRuntime.Geometry.MapPoint(currentPoint.Longitude, currentPoint.Latitude);
 
@@ -851,7 +1015,7 @@ namespace DisplayAScene
                 try
                 {
                     // Create a 3D model symbol using the provided model path
-                    ModelSceneSymbol pointModelSymbol = await ModelSceneSymbol.CreateAsync(new Uri(modelPath), 1.0);
+                    ModelSceneSymbol pointModelSymbol = await ModelSceneSymbol.CreateAsync(new Uri(modelPath));
                     
                     // Create a graphic using the model symbol
                     Graphic modelGraphic = new Graphic(point, pointModelSymbol);
@@ -883,7 +1047,9 @@ namespace DisplayAScene
             // Display the input above the point
             if (!string.IsNullOrEmpty(input))
             {
-                TextSymbol textSymbol = new TextSymbol(input, System.Drawing.Color.Blue, 24, Esri.ArcGISRuntime.Symbology.HorizontalAlignment.Left, Esri.ArcGISRuntime.Symbology.VerticalAlignment.Top);
+                TextSymbol textSymbol = new TextSymbol(input, System.Drawing.Color.Blue, 24, 
+                    Esri.ArcGISRuntime.Symbology.HorizontalAlignment.Left, 
+                    Esri.ArcGISRuntime.Symbology.VerticalAlignment.Top);
                 Graphic textGraphic = new Graphic(point, textSymbol);
                 CreateGraphics(textGraphic);
             }
