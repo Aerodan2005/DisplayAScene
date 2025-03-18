@@ -165,8 +165,11 @@ namespace DisplayAScene
  
             MissileAltTxt = "123";
             InitializeSceneView();
+            
             // Create a file path to the scene package or scene layer package.
+            // Restore the original path that was working
             string scenePath = @"C:\Users\urika\OneDrive\מסמכים\ArcGIS\Projects\Med2\Med2.mspk";
+            System.Diagnostics.Debug.WriteLine($"Loading scene package from: {scenePath}");
 
             try
             {
@@ -282,24 +285,62 @@ namespace DisplayAScene
 
         async private void SetupCamera()
         {
-
-            // Change the scene's point of view
-            double newLatitude = ((DataStore.Trajectory[0].Latitude + DataStore.Trajectory[DataStore.Trajectory.Count - 1].Latitude) / 2.0);
-            double newLongitude = (DataStore.Trajectory[0].Longitude + DataStore.Trajectory[DataStore.Trajectory.Count - 1].Longitude) / 2.0;
-            double newAltitude = 600000.0;
-
-            // Create a new Camera instance with the specified parameters
-            //Camera camera = new Camera(newLatitude, newLongitude, newAltitude, 0, 70, 0); // Heading = 0 (North), Pitch = 70, Roll = 0
-
-            // Create the OrbitGeoElementCameraController to follow a specific point
-            MapPoint targetPoint = new MapPoint(newLongitude, newLatitude, 200000, SpatialReferences.Wgs84);
-            MapPoint cameraPoint = new MapPoint(newLongitude, newLatitude - 20, 100000, SpatialReferences.Wgs84);
-            CameraController cameraController = new OrbitLocationCameraController(targetPoint, cameraPoint);
-            this.SceneView.CameraController = cameraController;
-            OnPropertyChanged();
-
+            try
+            {
+                // Calculate trajectory extents for proper camera positioning
+                double minLongitude = double.MaxValue;
+                double maxLongitude = double.MinValue;
+                double minLatitude = double.MaxValue;
+                double maxLatitude = double.MinValue;
+                
+                // Get the bounds of the trajectory
+                foreach (var point in DataStore.Trajectory)
+                {
+                    minLongitude = Math.Min(minLongitude, point.Longitude);
+                    maxLongitude = Math.Max(maxLongitude, point.Longitude);
+                    minLatitude = Math.Min(minLatitude, point.Latitude);
+                    maxLatitude = Math.Max(maxLatitude, point.Latitude);
+                }
+                
+                // Calculate center point
+                double centerLatitude = (minLatitude + maxLatitude) / 2.0;
+                double centerLongitude = (minLongitude + maxLongitude) / 2.0;
+                
+                // Calculate the distance between min and max points (in degrees)
+                double longitudeSpan = Math.Abs(maxLongitude - minLongitude);
+                double latitudeSpan = Math.Abs(maxLatitude - minLatitude);
+                
+                // Ensure minimum span for visibility
+                longitudeSpan = Math.Max(longitudeSpan, 2.0);
+                latitudeSpan = Math.Max(latitudeSpan, 2.0);
+                
+                // Add a modest buffer to ensure full trajectory is visible
+                longitudeSpan *= 1.1;
+                latitudeSpan *= 1.1;
+                
+                // Set a reasonable altitude - not too far out
+                double altitude = 300000; // 300km altitude
+                
+                // Position camera based on trajectory orientation (westward)
+                // Shift east to see the whole trajectory, but keep moderate distance
+                double cameraLong = maxLongitude + (longitudeSpan * 0.1);
+                
+                // Create camera point keeping north as up orientation (standard)
+                Camera camera = new Camera(centerLatitude, cameraLong, altitude, 270, 30, 0);
+                // Heading 270 points west, pitch 30 looks down at angle, roll 0 keeps north up
+                
+                // Apply the camera to the scene view
+                this.SceneView.SetViewpointCamera(camera);
+                
+                Console.WriteLine($"Camera setup complete at altitude: {altitude}m");
+                
+                OnPropertyChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in SetupCamera: {ex.Message}");
+            }
         }
-
 
         public void LoadTrajectoryData()
         {
@@ -336,14 +377,31 @@ namespace DisplayAScene
                 if (polylineBuilder.Parts.Count > 0)
                 {
                     // Create a polyline from the builder
-
                     var polylineGraphic = new Graphic(polyline);
                     polylineGraphic.IsVisible = true;
-                    polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.FromArgb(128, System.Drawing.Color.Red), 6);
+                    // Change line color to blue for westward trajectory
+                    polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.FromArgb(200, System.Drawing.Color.Blue), 6);
                     CreateGraphics(polylineGraphic);
+                    
+                    // Add point markers at start and end of trajectory
+                    var startPoint = new MapPoint(DataStore.Trajectory[0].Longitude, DataStore.Trajectory[0].Latitude, 
+                        DataStore.Trajectory[0].Altitude * 1000.0, SpatialReferences.Wgs84);
+                    var endPoint = new MapPoint(DataStore.Trajectory[DataStore.Trajectory.Count - 1].Longitude, 
+                        DataStore.Trajectory[DataStore.Trajectory.Count - 1].Latitude, 
+                        DataStore.Trajectory[DataStore.Trajectory.Count - 1].Altitude * 1000.0, SpatialReferences.Wgs84);
+                    
+                    // Marker for launch point (green)
+                    var startPointGraphic = new Graphic(startPoint);
+                    startPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
+                        System.Drawing.Color.Green, 10000, 10000, 10000, SceneSymbolAnchorPosition.Center);
+                    CreateGraphics(startPointGraphic);
+                    
+                    // Marker for impact point (red)
+                    var endPointGraphic = new Graphic(endPoint);
+                    endPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
+                        System.Drawing.Color.Red, 10000, 10000, 10000, SceneSymbolAnchorPosition.Center);
+                    CreateGraphics(endPointGraphic);
                 }
-
-
 
                 Console.WriteLine("Trajectory added successfully.");
             }
@@ -691,8 +749,26 @@ namespace DisplayAScene
 
         public async Task GoThroughTrajectoryBall(MapViewModel mapViewModel)
         {
-            SetupCamera();
+            // Make sure the trajectory line is drawn before the animation begins
+            try
+            {
+                // First ensure the camera is properly set
+                SetupCamera();
+                
+                // Draw the complete trajectory line immediately
+                await AddTrajectoryToScene();
+                
+                Console.WriteLine("Added trajectory line to scene before animation");
+                
+                // Give a small delay to ensure the line appears
+                await Task.Delay(100);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error drawing trajectory line: {ex.Message}");
+            }
 
+            // Now go through the points for animation
             for (int i = 0; i < DataStore.Trajectory.Count; i++)
             {
                 await GoNextPt(i);
@@ -714,8 +790,15 @@ namespace DisplayAScene
 
                 mapViewModel.AddTrajectoryToMap(point);
 
-                // Use Task.Delay instead of Thread.Sleep to avoid blocking the main thread
+                // Slow down the animation to better visualize the trajectory
+                // Increase delay from 100ms to 400ms per point
                 await Task.Delay(100);
+                
+                // Log progress for debugging
+//                 if (i % 5 == 0) // Log every 5th point to avoid console spam
+//                 {
+//                     Console.WriteLine($"Animation progress: point {i+1}/{DataStore.Trajectory.Count}");
+//                 }
             }
         }
 
