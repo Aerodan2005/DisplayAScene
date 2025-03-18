@@ -901,11 +901,11 @@ namespace DisplayAScene
 
 
                 // Create the orbit camera controller to follow the missile
-                _orbitCameraController = new OrbitGeoElementCameraController(missileGraphic, 50000.0) // Increased distance from 15000 to 50000
+                _orbitCameraController = new OrbitGeoElementCameraController(missileGraphic, 20000.0) // Reduced distance from 50000 to 20000 since coordinates are normalized
                 {
-                    TargetVerticalScreenFactor = 0.5, // Add pitch offset to see more of the object
-                    CameraPitchOffset = 45.0, // Add heading offset for better viewing angle
-                    CameraHeadingOffset = 30.0, // Add heading offset for better viewing angle
+                    TargetVerticalScreenFactor = 0.5, // Center the target in the view
+                    CameraPitchOffset = 45.0, // Keep pitch offset to see more of the object
+                    CameraHeadingOffset = 30.0, // Keep heading offset for better viewing angle
                 };
                 //this.MyBodyView.InitialViewpoint = _orbitCameraController;
                 // Set the CameraController on the SceneView instead of the Scene
@@ -913,7 +913,7 @@ namespace DisplayAScene
                 {
                     // Use the orbit camera controller for better viewing of the entire object
                     this.SceneView.CameraController = _orbitCameraController; // Changed from cameraController to _orbitCameraController
-                    Console.WriteLine("Body view camera set to orbit controller with increased distance");
+                    Console.WriteLine("Body view camera set to orbit controller with normalized coordinates");
                 }
 
 
