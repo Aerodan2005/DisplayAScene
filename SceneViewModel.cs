@@ -39,7 +39,8 @@ namespace DisplayAScene
 
     public partial class SceneViewModel : INotifyPropertyChanged
     {
-
+        // Static trajectory overlay index - always use the first overlay for trajectory
+        private readonly int TRAJECTORY_OVERLAY_INDEX = 0;
 
         public SceneViewModel()
         {
@@ -58,6 +59,7 @@ namespace DisplayAScene
             GraphicsOverlay trajectoryOverlay = new GraphicsOverlay();
             trajectoryOverlay.SceneProperties.SurfacePlacement = SurfacePlacement.Relative;
             trajectoryOverlay.IsVisible = true;
+            trajectoryOverlay.Id = "TrajectoryOverlay"; // Give it a unique ID
             GraphicsOverlays.Add(trajectoryOverlay);
             
             Console.WriteLine("SceneViewModel initialized with graphics overlay");
@@ -379,20 +381,31 @@ namespace DisplayAScene
                     return;
                 }
                 
-                // Clear any existing graphics from previous trajectories
-                Console.WriteLine("Clearing graphics overlays in LoadTrajectoryData");
-                if (GraphicsOverlays != null)
+                // Only clear the trajectory graphics overlay
+                if (GraphicsOverlays != null && GraphicsOverlays.Count > TRAJECTORY_OVERLAY_INDEX)
                 {
-                    foreach (var overlay in GraphicsOverlays)
-                    {
-                        overlay.Graphics.Clear();
-                        Console.WriteLine("Graphics overlay cleared");
-                    }
+                    // Clear only the trajectory overlay (index 0)
+                    GraphicsOverlays[TRAJECTORY_OVERLAY_INDEX].Graphics.Clear();
+                    Console.WriteLine("Trajectory graphics overlay cleared");
                 }
                 else
                 {
-                    Console.WriteLine("Creating new graphics overlays collection");
-                    GraphicsOverlays = new GraphicsOverlayCollection();
+                    // Create a new collection if it doesn't exist
+                    Console.WriteLine("Creating new graphics overlay for trajectory");
+                    if (GraphicsOverlays == null)
+                    {
+                        GraphicsOverlays = new GraphicsOverlayCollection();
+                    }
+                    
+                    // Create a default graphics overlay for trajectory if it doesn't exist
+                    if (GraphicsOverlays.Count <= TRAJECTORY_OVERLAY_INDEX)
+                    {
+                        GraphicsOverlay trajectoryOverlay = new GraphicsOverlay();
+                        trajectoryOverlay.SceneProperties.SurfacePlacement = SurfacePlacement.Relative;
+                        trajectoryOverlay.IsVisible = true;
+                        trajectoryOverlay.Id = "TrajectoryOverlay";
+                        GraphicsOverlays.Add(trajectoryOverlay);
+                    }
                 }
                 
                 Console.WriteLine("Trajectory data loaded and ready for display");
@@ -429,6 +442,16 @@ namespace DisplayAScene
                 else
                 {
                     Console.WriteLine($"AddTrajectoryToScene - Processing {DataStore.Trajectory.Count} trajectory points");
+                    
+                    // Ensure we have a trajectory overlay
+                    if (GraphicsOverlays == null || GraphicsOverlays.Count <= TRAJECTORY_OVERLAY_INDEX)
+                    {
+                        Console.WriteLine("AddTrajectoryToScene - Creating trajectory overlay");
+                        LoadTrajectoryData();  // This will create the overlay if needed
+                    }
+                    
+                    // Always use the dedicated trajectory overlay
+                    var trajectoryOverlay = GraphicsOverlays[TRAJECTORY_OVERLAY_INDEX];
                     
                     // Convert the list of custom trajectory points to a list of MapPoints
                     var trajPoints = DataStore.Trajectory;
@@ -513,7 +536,7 @@ namespace DisplayAScene
                         
                         // Use a more visible blue color for the trajectory
                         polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.FromArgb(255, 0, 0, 255), 8);
-                        CreateGraphics(polylineGraphic);
+                        trajectoryOverlay.Graphics.Add(polylineGraphic);
                         
                         // Add point markers at start and end of trajectory
                         var startPoint = new MapPoint(trajPoints[0].Longitude, trajPoints[0].Latitude, 
@@ -533,7 +556,7 @@ namespace DisplayAScene
                         var startPointGraphic = new Graphic(startPoint);
                         startPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
                             System.Drawing.Color.LimeGreen, 12000, 12000, 12000, SceneSymbolAnchorPosition.Center);
-                        CreateGraphics(startPointGraphic);
+                        trajectoryOverlay.Graphics.Add(startPointGraphic);
                         
                         // Add a text label for the launch point
                         var startTextSymbol = new TextSymbol("Launch Point", System.Drawing.Color.White, 12, 
@@ -541,13 +564,13 @@ namespace DisplayAScene
                             Esri.ArcGISRuntime.Symbology.VerticalAlignment.Bottom);
                         startTextSymbol.OffsetY = 20; // Offset to position above the point
                         var startTextGraphic = new Graphic(startPoint, startTextSymbol);
-                        CreateGraphics(startTextGraphic);
+                        trajectoryOverlay.Graphics.Add(startTextGraphic);
                         
                         // Marker for impact point (red)
                         var endPointGraphic = new Graphic(endPoint);
                         endPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
                             System.Drawing.Color.Red, 12000, 12000, 12000, SceneSymbolAnchorPosition.Center);
-                        CreateGraphics(endPointGraphic);
+                        trajectoryOverlay.Graphics.Add(endPointGraphic);
                         
                         // Add a text label for the impact point
                         var endTextSymbol = new TextSymbol("Impact Point", System.Drawing.Color.White, 12, 
@@ -555,13 +578,13 @@ namespace DisplayAScene
                             Esri.ArcGISRuntime.Symbology.VerticalAlignment.Bottom);
                         endTextSymbol.OffsetY = 20; // Offset to position above the point
                         var endTextGraphic = new Graphic(endPoint, endTextSymbol);
-                        CreateGraphics(endTextGraphic);
+                        trajectoryOverlay.Graphics.Add(endTextGraphic);
                         
                         // Marker for apogee point (yellow)
                         var apogeePointGraphic = new Graphic(apogeePoint);
                         apogeePointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
                             System.Drawing.Color.Yellow, 10000, 10000, 10000, SceneSymbolAnchorPosition.Center);
-                        CreateGraphics(apogeePointGraphic);
+                        trajectoryOverlay.Graphics.Add(apogeePointGraphic);
                         
                         // Add a text label for the apogee point
                         var apogeeTextSymbol = new TextSymbol($"Apogee ({maxAltitude:F1}km)", System.Drawing.Color.Yellow, 12, 
@@ -569,7 +592,7 @@ namespace DisplayAScene
                             Esri.ArcGISRuntime.Symbology.VerticalAlignment.Bottom);
                         apogeeTextSymbol.OffsetY = 20; // Offset to position above the point
                         var apogeeTextGraphic = new Graphic(apogeePoint, apogeeTextSymbol);
-                        CreateGraphics(apogeeTextGraphic);
+                        trajectoryOverlay.Graphics.Add(apogeeTextGraphic);
                         
                         Console.WriteLine("AddTrajectoryToScene - Trajectory markers added: Launch, Impact, and Apogee points");
                     }
@@ -969,10 +992,17 @@ namespace DisplayAScene
             }
         }
 
-        public void CalculateBodyAngles(int ind)
+        public void CalculateBodyAngles(int ind = 0)
         {
-            //for (int i = 0; i < DataStore.Trajectory.Count - 1; i++)
-            int i = ind;
+            // Check if we have trajectory data
+            if (DataStore.Trajectory == null || DataStore.Trajectory.Count < 2)
+            {
+                Console.WriteLine("CalculateBodyAngles - Not enough trajectory points (minimum 2 required)");
+                return;
+            }
+            
+            // Calculate angles for all points
+            for (int i = 0; i < DataStore.Trajectory.Count - 1; i++)
             {
                 var currentPoint = DataStore.Trajectory[i];
                 var nextPoint = DataStore.Trajectory[i + 1];
@@ -995,6 +1025,8 @@ namespace DisplayAScene
             lastPoint.Heading = 0;
             lastPoint.Pitch = 0;
             lastPoint.Roll = 0;
+            
+            Console.WriteLine("CalculateBodyAngles - Angles calculated for all trajectory points");
         }
         public double DegreesToMeters(double degrees, double latitude)
         {
