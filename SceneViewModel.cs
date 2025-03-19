@@ -360,6 +360,47 @@ namespace DisplayAScene
                 Console.WriteLine($"Camera position: Lat {cameraLatitude}, Long {cameraLongitude}");
                 Console.WriteLine($"Trajectory spans: Long {minLongitude} to {maxLongitude}, MaxAlt: {maxAltitude}km");
                 
+                // Check if this is a Shahed trajectory based on altitude values
+                bool isShahedTrajectory = maxAltitude < 10.0; // If max altitude is very small (< 10km), it's likely a Shahed with 1,000,000 scaling
+                
+                if (isShahedTrajectory)
+                {
+                    // For Shahed launched from Beirut, adjust camera accordingly
+                    double beirutLat = 33.8938;
+                    double beirutLon = 35.5018;
+                    double targetDistance = 100.0; // km
+                    
+                    // Check if first point is close to Beirut (confirming it was relocated)
+                    bool launchedFromBeirut = Math.Abs(DataStore.Trajectory[0].Latitude - beirutLat) < 1.0 &&
+                                             Math.Abs(DataStore.Trajectory[0].Longitude - beirutLon) < 1.0;
+                    
+                    if (launchedFromBeirut)
+                    {
+                        Console.WriteLine("Detected Shahed launched from Beirut - adjusting camera");
+                        
+                        // Get first and last points to calculate direction
+                        var firstPoint = DataStore.Trajectory[0];
+                        var lastPoint = DataStore.Trajectory[DataStore.Trajectory.Count - 1];
+                        
+                        // Calculate camera position east of trajectory to look westward
+                        double cameraAltKm = 100.0; // Higher altitude for Shahed trajectory
+                        
+                        // Position camera southeast of Beirut looking northwest
+                        Camera shahedCamera = new Camera(
+                            beirutLat - 1.0, // 1 degree south of Beirut
+                            beirutLon + 1.0, // 1 degree east of Beirut
+                            cameraAltKm * 1000, // Convert to meters
+                            0, // Heading - looking west
+                            45, // Pitch - looking down at 45 degrees
+                            0  // Roll
+                        );
+                        
+                        // Update camera
+                        SceneView.SetViewpointCamera(shahedCamera);
+                        return;
+                    }
+                }
+                
                 OnPropertyChanged();
             }
             catch (Exception ex)
@@ -469,7 +510,13 @@ namespace DisplayAScene
                         }
                     }
                     
+                    // All trajectory types are now handled consistently with altitudes in kilometers
+                    // No special detection for Shahed needed anymore 
+                    
                     Console.WriteLine($"AddTrajectoryToScene - Max altitude: {maxAltitude} km at point {maxAltitudeIndex}");
+                    
+                    // Display altitude consistently in kilometers
+                    string altitudeDisplay = $"Apogee ({maxAltitude:F1}km)";
                     
                     // Check if trajectory points need sorting to ensure linear path
                     bool requiresSorting = false;
@@ -523,7 +570,23 @@ namespace DisplayAScene
 
                     foreach (var point in trajPoints)
                     {
-                        polylineBuilder.AddPoint(point.Longitude, point.Latitude, point.Altitude * 1000.0);
+                        double altitudeMeters;
+                        
+                        // Ensure first point is at ground level (0m elevation)
+                        if (point == trajPoints[0])
+                        {
+                            // For the launch point (first point), set altitude to 0 for ground level start
+                            altitudeMeters = 0;
+                            Console.WriteLine($"DEBUG: Setting launch point altitude to 0m for ground level start (original was {point.Altitude}km)");
+                        }
+                        else
+                        {
+                            // For all other points, convert km to meters
+                            altitudeMeters = point.Altitude * 1000.0; // Standard km to m conversion
+                            Console.WriteLine($"DEBUG: point altitude: {point.Altitude}km -> {altitudeMeters}m (standard km to m conversion)");
+                        }
+                        
+                        polylineBuilder.AddPoint(point.Longitude, point.Latitude, altitudeMeters);
                     }
 
                     Polyline polyline = polylineBuilder.ToGeometry();
@@ -538,47 +601,66 @@ namespace DisplayAScene
                         polylineGraphic.Symbol = new SimpleLineSymbol(SimpleLineSymbolStyle.Solid, System.Drawing.Color.FromArgb(255, 0, 0, 255), 8);
                         trajectoryOverlay.Graphics.Add(polylineGraphic);
                         
-                        // Add point markers at start and end of trajectory
-                        var startPoint = new MapPoint(trajPoints[0].Longitude, trajPoints[0].Latitude, 
-                            trajPoints[0].Altitude * 1000.0, SpatialReferences.Wgs84);
-                        var endPoint = new MapPoint(trajPoints[trajPoints.Count - 1].Longitude, 
-                            trajPoints[trajPoints.Count - 1].Latitude, 
-                            trajPoints[trajPoints.Count - 1].Altitude * 1000.0, SpatialReferences.Wgs84);
+                        // Create positions for markers
+                        double GetPointAltitude(TrajectoryPoint trajPoint)
+                        {
+                            // For the first point (launch point), force altitude to zero
+                            if (trajPoint == trajPoints[0])
+                            {
+                                Console.WriteLine("Setting launch point marker altitude to 0 meters");
+                                return 0.0;
+                            }
+                            
+                            // All trajectory types now use the same standard conversion from km to meters
+                            return trajPoint.Altitude * 1000.0; 
+                        }
                         
-                        // Add marker for the apogee (highest point)
-                        var apogeePoint = new MapPoint(
+                        MapPoint launchPoint = new MapPoint(
+                            trajPoints[0].Longitude, 
+                            trajPoints[0].Latitude, 
+                            GetPointAltitude(trajPoints[0]), 
+                            SpatialReferences.Wgs84);
+                        
+                        MapPoint impactPoint = new MapPoint(
+                            trajPoints[trajPoints.Count - 1].Longitude, 
+                            trajPoints[trajPoints.Count - 1].Latitude, 
+                            GetPointAltitude(trajPoints[trajPoints.Count - 1]), 
+                            SpatialReferences.Wgs84);
+                        
+                        // Create apogee point at max altitude
+                        MapPoint apogeePoint = new MapPoint(
                             trajPoints[maxAltitudeIndex].Longitude, 
                             trajPoints[maxAltitudeIndex].Latitude, 
-                            trajPoints[maxAltitudeIndex].Altitude * 1000.0, 
+                            GetPointAltitude(trajPoints[maxAltitudeIndex]), 
                             SpatialReferences.Wgs84);
                         
                         // Marker for launch point (green)
-                        var startPointGraphic = new Graphic(startPoint);
-                        startPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
-                            System.Drawing.Color.LimeGreen, 12000, 12000, 12000, SceneSymbolAnchorPosition.Center);
-                        trajectoryOverlay.Graphics.Add(startPointGraphic);
+                        var launchPointGraphic = new Graphic(launchPoint);
+                        launchPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
+                            System.Drawing.Color.LimeGreen, 2000, 2000, 2000, SceneSymbolAnchorPosition.Bottom);
+                        trajectoryOverlay.Graphics.Add(launchPointGraphic);
                         
                         // Add a text label for the launch point
-                        var startTextSymbol = new TextSymbol("Launch Point", System.Drawing.Color.White, 12, 
+                        var launchTextSymbol = new TextSymbol("Launch Point", System.Drawing.Color.White, 12, 
                             Esri.ArcGISRuntime.Symbology.HorizontalAlignment.Center, 
                             Esri.ArcGISRuntime.Symbology.VerticalAlignment.Bottom);
-                        startTextSymbol.OffsetY = 20; // Offset to position above the point
-                        var startTextGraphic = new Graphic(startPoint, startTextSymbol);
-                        trajectoryOverlay.Graphics.Add(startTextGraphic);
+                        launchTextSymbol.OffsetY = 20; // Offset to position above the point
+                        var launchTextGraphic = new Graphic(launchPoint, launchTextSymbol);
+                        trajectoryOverlay.Graphics.Add(launchTextGraphic);
                         
                         // Marker for impact point (red)
-                        var endPointGraphic = new Graphic(endPoint);
-                        endPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
-                            System.Drawing.Color.Red, 12000, 12000, 12000, SceneSymbolAnchorPosition.Center);
-                        trajectoryOverlay.Graphics.Add(endPointGraphic);
+                        var impactPointGraphic = new Graphic(impactPoint);
+                        impactPointGraphic.Symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbolStyle.Sphere, 
+                            System.Drawing.Color.Red, 2000, 2000, 2000, SceneSymbolAnchorPosition.Bottom);
+                        trajectoryOverlay.Graphics.Add(impactPointGraphic);
                         
                         // Add a text label for the impact point
-                        var endTextSymbol = new TextSymbol("Impact Point", System.Drawing.Color.White, 12, 
+                        var impactTextSymbol = new TextSymbol("Impact Point", System.Drawing.Color.White, 12, 
                             Esri.ArcGISRuntime.Symbology.HorizontalAlignment.Center, 
                             Esri.ArcGISRuntime.Symbology.VerticalAlignment.Bottom);
-                        endTextSymbol.OffsetY = 20; // Offset to position above the point
-                        var endTextGraphic = new Graphic(endPoint, endTextSymbol);
-                        trajectoryOverlay.Graphics.Add(endTextGraphic);
+                        impactTextSymbol.OffsetY = 20; // Offset to position above the point
+                        var impactTextGraphic = new Graphic(impactPoint, impactTextSymbol);
+                        trajectoryOverlay.Graphics.Add(impactTextGraphic);
                         
                         // Marker for apogee point (yellow)
                         var apogeePointGraphic = new Graphic(apogeePoint);
@@ -587,7 +669,7 @@ namespace DisplayAScene
                         trajectoryOverlay.Graphics.Add(apogeePointGraphic);
                         
                         // Add a text label for the apogee point
-                        var apogeeTextSymbol = new TextSymbol($"Apogee ({maxAltitude:F1}km)", System.Drawing.Color.Yellow, 12, 
+                        var apogeeTextSymbol = new TextSymbol(altitudeDisplay, System.Drawing.Color.Yellow, 12, 
                             Esri.ArcGISRuntime.Symbology.HorizontalAlignment.Center, 
                             Esri.ArcGISRuntime.Symbology.VerticalAlignment.Bottom);
                         apogeeTextSymbol.OffsetY = 20; // Offset to position above the point
@@ -863,12 +945,25 @@ namespace DisplayAScene
 
                 try
                 {
-                    // Create the model symbol with the proper orientation
-                    missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri(MissileModelPath), 1.0);
+                    // Determine if we need a larger scale factor for smaller models like Shahed
+                    double scaleMultiplier = 1.0;
+                    
+                    // Check trajectory apogee to identify Shahed (low altitude trajectory)
+                    bool isShahedModel = false;
+                    double maxAltitude = DataStore.Trajectory.Max(p => p.Altitude);
+                    if (maxAltitude < 10.0) // If max altitude is less than 10km, it's likely a Shahed
+                    {
+                        isShahedModel = true;
+                        scaleMultiplier = 20.0; // Much larger scale for Shahed models
+                        Console.WriteLine($"Detected Shahed model - applying larger scale factor: {scaleMultiplier}");
+                    }
+                    
+                    // Create the model symbol with the proper orientation and scaling
+                    missileSymbol = await ModelSceneSymbol.CreateAsync(new Uri(MissileModelPath), scaleMultiplier);
                     missileSymbol.Heading = DataStore.Trajectory[ind].Heading + PhiGeneral;
                     missileSymbol.Pitch = DataStore.Trajectory[ind].Pitch + ThetaGeneral;
                     missileSymbol.Roll = DataStore.Trajectory[ind].Roll;
-
+                    
                     // Create a graphic using the missile symbol.
                     MapPoint point = new MapPoint(longitude, latitude, altitude * 1000, SpatialReferences.Wgs84);
                     missile_geom = point;
