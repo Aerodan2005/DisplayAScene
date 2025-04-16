@@ -181,7 +181,7 @@ namespace DisplayAScene
             
             // Create a file path to the scene package or scene layer package.
             // Restore the original path that was working
-            string scenePath = @"C:\Users\urika\OneDrive\מסמכים\ArcGIS\Projects\Med2\Med2.mspk";
+            string scenePath = @"C:\Work\dataroot\dataroot\Maps\MED2.mspk";
             System.Diagnostics.Debug.WriteLine($"Loading scene package from: {scenePath}");
 
             try
